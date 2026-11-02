@@ -7,6 +7,8 @@ import com.aicode.glass.core.data.SettingsRepository
 import com.aicode.glass.data.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -23,9 +25,11 @@ class GitViewModel @Inject constructor(val settings: SettingsRepository, val git
     fun dismissNotice() { _notice.value = null }
     fun dismissDiff() { _diff.value = null }
     fun refresh() { viewModelScope.launch { try { _state.value = git.snapshot(workspaceId.value) } catch(e: Exception) { _error.value = e.message } } }
+    private val actionMutex = Mutex()
     private fun action(message: String = "Done", block: suspend () -> Unit) {
-        if (_busy.value || agent.state.value.busy) return
-        viewModelScope.launch { _busy.value = true; try { block(); refresh(); _notice.value = message } catch(e: Exception) { _error.value = e.message } finally { _busy.value = false } }
+        if (_busy.value || agent.state.value.busy || !actionMutex.tryLock()) return
+        _busy.value = true
+        viewModelScope.launch { try { block(); refresh(); _notice.value = message } catch(e: Exception) { _error.value = e.message } finally { _busy.value = false; actionMutex.unlock() } }
     }
     fun initialize() = action("Repository initialized") { git.initialize(workspaceId.value) }
     fun stage(path: String, staged: Boolean = true) = action("Index updated") { git.stage(workspaceId.value, path, staged) }

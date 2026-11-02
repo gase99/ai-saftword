@@ -69,7 +69,7 @@ class WorkspaceViewModel @Inject constructor(
         if (command == "clear") { _session.value.clear(); return }
         val id = workspaceId.value; val current = _session.value
         terminalJob = viewModelScope.launch { try {
-            workspaces.transaction(id) { root -> current.execute(command, beforeMutation = { checkpoints.captureLocked(root, id, "Terminal · $it") }, git = { terminalCommand(root, it) }) }
+            workspaces.transaction(id) { root -> current.execute(command, beforeMutation = { label -> checkpoints.captureLocked(root, id, "Terminal · " + label); Unit }, git = { terminalCommand(root, it) }) }
             refresh()
         } catch(e: CancellationException) { /* cooperative cancellation */ } catch(e: Exception) { _error.value = e.message } }
     }

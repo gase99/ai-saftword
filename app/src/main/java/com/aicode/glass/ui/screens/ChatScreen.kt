@@ -14,6 +14,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -117,7 +120,7 @@ fun ChatScreen(onSettings: () -> Unit, onFiles: () -> Unit, vm: ChatViewModel = 
     val pending = agent.pending
     if (pending != null) AlertDialog(onDismissRequest = { vm.agent.approve(false) }, icon = { Icon(Icons.Outlined.Shield, null) }, title = { Text(stringResource(R.string.approve_edit)) }, text = {
         Column(Modifier.verticalScroll(rememberScrollState())) {
-            Text(previewTitle(pending.name, pending.preview.path), fontWeight = FontWeight.SemiBold)
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) { Text(pending.name + " · " + pending.preview.path, fontWeight = FontWeight.SemiBold) }
             Text(stringResource(R.string.approval_detail), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 10.dp))
             Text(stringResource(R.string.proposed_content), style = MaterialTheme.typography.labelMedium)
             Text(pending.preview.after.take(12000), modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).background(MaterialTheme.colorScheme.surfaceVariant).padding(10.dp), fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 11.sp, softWrap = false)

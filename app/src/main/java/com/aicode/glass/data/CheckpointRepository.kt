@@ -51,7 +51,7 @@ class CheckpointRepository @Inject constructor(
                     require(entry.hash.matches(Regex("[0-9a-f]{64}")))
                     val target = workspaces.resolve(staging, entry.path)
                     val blob = File(objects, entry.hash)
-                    if (!blob.isFile || WorkspaceRepository.hash(blob) != entry.hash) throw WorkspaceException("Checkpoint data is missing or damaged. No files were changed.")
+                    if (!blob.isFile || WorkspaceRepository.sha(blob.readBytes()) != entry.hash) throw WorkspaceException("Checkpoint data is missing or damaged. No files were changed.")
                     target.parentFile?.mkdirs(); blob.copyTo(target)
                 }
                 WorkspaceRepository.swapContents(root, staging)

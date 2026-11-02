@@ -19,6 +19,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -48,7 +51,7 @@ fun TerminalScreen(filesInitially: Boolean = false, vm: WorkspaceViewModel = hil
         if (editor != null) EditorPane(vm) else {
             SectionTitle(stringResource(R.string.workspace_title), stringResource(R.string.workspace_subtitle))
             PrimaryTabRow(selectedTabIndex = tab, containerColor = Color.Transparent) {
-                listOf(R.string.tab_terminal to Icons.AutoMirrored.Outlined.Terminal, R.string.files to Icons.Outlined.FolderOpen, R.string.checkpoints to Icons.Outlined.History).forEachIndexed { index, (label, icon) ->
+                listOf(R.string.tab_terminal to Icons.Outlined.Terminal, R.string.files to Icons.Outlined.FolderOpen, R.string.checkpoints to Icons.Outlined.History).forEachIndexed { index, (label, icon) ->
                     Tab(selected = tab == index, onClick = { tab = index }, text = { Text(stringResource(label), fontSize = 12.sp) }, icon = { Icon(icon, null, Modifier.size(19.dp)) })
                 }
             }
