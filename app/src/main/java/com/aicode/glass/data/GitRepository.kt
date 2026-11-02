@@ -124,7 +124,7 @@ class GitRepository @Inject constructor(private val workspaces: WorkspaceReposit
         }
         command.setTimeout(60); provider?.let { command.setCredentialsProvider(it) }
         when (val result = command.call()) {
-            is org.eclipse.jgit.api.PushResult -> {
+            is org.eclipse.jgit.transport.PushResult -> {
                 val rejected = result.remoteUpdates.filter { it.status !in setOf(RemoteRefUpdate.Status.OK, RemoteRefUpdate.Status.UP_TO_DATE) }
                 if (rejected.isNotEmpty()) throw IllegalStateException("Push rejected: " + rejected.joinToString { "${it.remoteName}: ${it.status} ${it.message ?: ""}" })
             }
