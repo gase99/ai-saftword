@@ -29,7 +29,7 @@ data class GitSnapshot(val initialized: Boolean = false, val branch: String = ""
 @Singleton
 class GitRepository @Inject constructor(private val workspaces: WorkspaceRepository, private val secrets: SecretStore) {
     private suspend fun <T> operation(id: String, block: suspend (Git) -> T): T = workspaces.transaction(id) { root ->
-        withContext(Dispatchers.IO) { Git.open(root).use(block) }
+        withContext(Dispatchers.IO) { val git = Git.open(root); try { block(git) } finally { git.close() } }
     }
     suspend fun initialize(id: String) = workspaces.transaction(id) { root ->
         Git.init().setDirectory(root).setInitialBranch("main").call().close()

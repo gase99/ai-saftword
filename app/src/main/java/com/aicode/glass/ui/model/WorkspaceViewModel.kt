@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aicode.glass.core.data.SettingsRepository
 import com.aicode.glass.data.*
+import com.aicode.glass.data.terminalCommand
 import com.aicode.glass.terminal.TerminalSession
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -69,7 +70,7 @@ class WorkspaceViewModel @Inject constructor(
         if (command == "clear") { _session.value.clear(); return }
         val id = workspaceId.value; val current = _session.value
         terminalJob = viewModelScope.launch { try {
-            workspaces.transaction(id) { root -> current.execute(command, beforeMutation = { label -> checkpoints.captureLocked(root, id, "Terminal · " + label); Unit }, git = { terminalCommand(root, it) }) }
+            workspaces.transaction(id) { root -> current.execute(command, beforeMutation = { label -> checkpoints.captureLocked(root, id, "Terminal · " + label); Unit }, git = { args -> withContext(Dispatchers.IO) { terminalCommand(root, args) } }) }
             refresh()
         } catch(e: CancellationException) { /* cooperative cancellation */ } catch(e: Exception) { _error.value = e.message } }
     }

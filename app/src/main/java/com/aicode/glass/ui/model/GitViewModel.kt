@@ -34,7 +34,7 @@ class GitViewModel @Inject constructor(val settings: SettingsRepository, val git
     fun initialize() = action("Repository initialized") { git.initialize(workspaceId.value) }
     fun stage(path: String, staged: Boolean = true) = action("Index updated") { git.stage(workspaceId.value, path, staged) }
     fun stageAll() = action("All changes staged") { git.stageAll(workspaceId.value) }
-    fun commit(message: String) { val prefs = settings.preferences.value; action("Changes committed") { git.commit(workspaceId.value, message, prefs.authorName, prefs.authorEmail) } }
+    fun commit(message: String) { action("Changes committed") { val prefs = settings.preferences.first(); git.commit(workspaceId.value, message, prefs.authorName, prefs.authorEmail) } }
     fun branch(name: String, switch: Boolean) = action("Branch ready") { git.createBranch(workspaceId.value, name); if (switch) git.switchBranch(workspaceId.value, name, checkpoints) }
     fun switch(name: String) = action("Switched to $name") { git.switchBranch(workspaceId.value, name, checkpoints) }
     fun showDiff(path: String, staged: Boolean) { viewModelScope.launch { try { _diff.value = git.diff(workspaceId.value, path, staged) } catch(e: Exception) { _error.value = e.message } } }

@@ -1,6 +1,6 @@
 package com.aicode.glass.terminal
 
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -15,13 +15,13 @@ class TerminalSessionTest {
         assertThrows(IllegalArgumentException::class.java) { TerminalSession.tokenize("echo 'unterminated") }
         assertThrows(IllegalArgumentException::class.java) { TerminalSession.tokenize("echo \$HOME") }
     }
-    @Test fun fileMutationCreatesOneCheckpointPerCommand() = runTest {
+    @Test fun fileMutationCreatesOneCheckpointPerCommand() = runBlocking {
         val root = folder.newFolder(); val shell = TerminalSession(root); var checkpoints = 0
         shell.execute("mkdir src\necho hello > src/a.txt\ncat src/a.txt", beforeMutation = { checkpoints++ })
         assertEquals(1, checkpoints); assertEquals("hello", File(root, "src/a.txt").readText().trim())
         assertEquals("hello", shell.lines.value.last().text)
     }
-    @Test fun pipesAndReadOnlyCommandsWork() = runTest {
+    @Test fun pipesAndReadOnlyCommandsWork() = runBlocking {
         val root = folder.newFolder(); File(root, "a.txt").writeText("alpha\nbeta\nALPACA")
         val shell = TerminalSession(root)
         shell.execute("cat a.txt | grep -i alpha")
@@ -29,22 +29,22 @@ class TerminalSessionTest {
         shell.execute("cd ../..")
         assertTrue(shell.lines.value.last().text.contains("escapes workspace"))
     }
-    @Test fun unsupportedRuntimeIsNotPretended() = runTest {
+    @Test fun unsupportedRuntimeIsNotPretended() = runBlocking {
         val shell = TerminalSession(folder.newFolder()); shell.execute("npm install")
         assertTrue(shell.lines.value.last().text.contains("No command was executed"))
         assertEquals(TerminalLine.Kind.ERROR, shell.lines.value.last().kind)
     }
-    @Test fun readOnlyCommandsDoNotSnapshot() = runTest {
+    @Test fun readOnlyCommandsDoNotSnapshot() = runBlocking {
         val shell = TerminalSession(folder.newFolder()); var count = 0
         shell.execute("pwd\nwhoami\nhelp", beforeMutation = { count++ })
         assertEquals(0, count)
     }
-    @Test fun refusesToRemoveGitMetadata() = runTest {
+    @Test fun refusesToRemoveGitMetadata() = runBlocking {
         val root = folder.newFolder(); File(root, ".git").mkdirs(); val shell = TerminalSession(root)
         shell.execute("rm -r .git")
         assertTrue(File(root, ".git").exists()); assertEquals(TerminalLine.Kind.ERROR, shell.lines.value.last().kind)
     }
-    @Test fun refusesSymlinkEscape() = runTest {
+    @Test fun refusesSymlinkEscape() = runBlocking {
         val root = folder.newFolder(); val outside = folder.newFolder(); File(outside, "private.txt").writeText("secret")
         java.nio.file.Files.createSymbolicLink(File(root, "link").toPath(), outside.toPath())
         val shell = TerminalSession(root); shell.execute("cat link/private.txt")
