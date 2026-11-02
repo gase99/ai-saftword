@@ -7,12 +7,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Chat
-import androidx.compose.material.icons.automirrored.outlined.Terminal
+import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -67,7 +68,7 @@ class MainActivity : ComponentActivity() {
     val route = backstack?.destination?.route ?: "chat"
     var workspacePicker by remember { mutableStateOf(false) }; var create by remember { mutableStateOf(false) }; var name by remember { mutableStateOf("") }
     var filesInitially by rememberSaveable { mutableStateOf(false) }
-    val tabs = listOf(Triple("chat", R.string.tab_chat, Icons.AutoMirrored.Outlined.Chat), Triple("terminal", R.string.tab_terminal, Icons.AutoMirrored.Outlined.Terminal), Triple("git", R.string.tab_git, Icons.Outlined.AccountTree), Triple("settings", R.string.tab_settings, Icons.Outlined.Settings))
+    val tabs = listOf(Triple("chat", R.string.tab_chat, Icons.AutoMirrored.Outlined.Chat), Triple("terminal", R.string.tab_terminal, Icons.Outlined.Terminal), Triple("git", R.string.tab_git, Icons.Outlined.AccountTree), Triple("settings", R.string.tab_settings, Icons.Outlined.Settings))
     Scaffold(containerColor = androidx.compose.ui.graphics.Color.Transparent, contentWindowInsets = WindowInsets.statusBars,
         topBar = {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {

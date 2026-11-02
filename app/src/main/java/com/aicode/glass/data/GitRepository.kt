@@ -11,6 +11,8 @@ import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 import org.eclipse.jgit.treewalk.CanonicalTreeParser
 import org.eclipse.jgit.treewalk.FileTreeIterator
+import org.eclipse.jgit.treewalk.EmptyTreeIterator
+import org.eclipse.jgit.treewalk.filter.PathFilterGroup
 
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -103,10 +105,10 @@ class GitRepository @Inject constructor(private val workspaces: WorkspaceReposit
         }
         out.toString("UTF-8").take(200_000)
     }
-    suspend fun setRemote(id: String, url: String) = operation(id) { git ->
-        validateRemote(url)
+    suspend fun setRemote(id: String, url: String) { validateRemote(url); operation(id) { git ->
         git.repository.config.apply { setString("remote", "origin", "url", url); setString("remote", "origin", "fetch", "+refs/heads/*:refs/remotes/origin/*"); save() }
-    }
+        Unit
+    } }
     suspend fun sync(id: String, action: String) = operation(id) { git ->
         val token = secrets.get("git_token")
         val provider = if (token.isBlank()) null else UsernamePasswordCredentialsProvider("x-access-token", token)

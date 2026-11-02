@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aicode.glass.ui.theme.GlassCard
 import org.commonmark.node.*
+import org.commonmark.node.Paragraph
+import androidx.compose.ui.text.style.TextDecoration
 import org.commonmark.parser.Parser
 
 @Composable
@@ -40,7 +42,7 @@ fun MarkdownText(text: String, modifier: Modifier = Modifier) {
         is FencedCodeBlock -> CodeBlock(node.literal, node.info ?: "")
         is IndentedCodeBlock -> CodeBlock(node.literal, "")
         is BulletList, is OrderedList -> Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            var child = node.firstChild; var index = (node as? OrderedList)?.markerStartNumber ?: 1
+            var child = node.firstChild; var index = (node as? OrderedList)?.startNumber ?: 1
             while (child != null) { Row(Modifier.padding(start = (depth * 8).dp)) {
                 Text(if (node is BulletList) "•  " else "${index++}.  ", color = MaterialTheme.colorScheme.primary)
                 Column(Modifier.weight(1f)) { Block(child, depth + 1) }
