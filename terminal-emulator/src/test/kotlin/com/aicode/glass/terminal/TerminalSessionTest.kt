@@ -50,4 +50,12 @@ class TerminalSessionTest {
         val shell = TerminalSession(root); shell.execute("cat link/private.txt")
         assertTrue(shell.lines.value.last().text.contains("Symbolic links"))
     }
+    @Test fun headAndTailUseNumericOptionRatherThanFilename() = runBlocking {
+        val root = folder.newFolder(); File(root, "lines.txt").writeText("one\ntwo\nthree\nfour")
+        val shell = TerminalSession(root)
+        shell.execute("head -n 2 lines.txt")
+        assertEquals(listOf("one", "two"), shell.lines.value.takeLast(2).map { it.text })
+        shell.execute("tail -n 1 lines.txt")
+        assertEquals("four", shell.lines.value.last().text)
+    }
 }

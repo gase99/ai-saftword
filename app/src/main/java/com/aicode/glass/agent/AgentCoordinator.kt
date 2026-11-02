@@ -39,17 +39,18 @@ class AgentCoordinator @Inject constructor(
         clearError()
         job = scope.launch {
             var activeMessage: MessageEntity? = null
-            val config = settings.preferences.first().let { it.configs.getValue(it.provider) }
-            val prefs = settings.preferences.first()
-            val conversation = dao.conversation(conversationId)
-            if (conversation == null) { _state.update { it.copy(error = "Conversation not found.") }; return@launch }
-            _state.update { AgentState(conversationId, conversation.workspaceId, busy = true, phase = "connecting") }
+            var secretKey = ""
             try {
+                val prefs = settings.preferences.first()
+                val config = prefs.configs.getValue(prefs.provider)
+                val current = dao.conversation(conversationId) ?: throw IllegalStateException("Conversation not found.")
+                _state.update { AgentState(conversationId, current.workspaceId, busy = true, phase = "connecting") }
                 val now = System.currentTimeMillis()
                 dao.insertMessage(MessageEntity(conversationId = conversationId, role = "user", content = prompt.take(32_000), createdAt = now))
-                if (conversation.title == "New conversation") dao.touch(conversationId, prompt.take(48).replace('\n', ' '), now)
-                else dao.touch(conversationId, conversation.title, now)
+                if (current.title == "New conversation") dao.touch(conversationId, prompt.take(48).replace('\n', ' '), now)
+                else dao.touch(conversationId, current.title, now)
                 val key = secrets.get("api_${prefs.provider.name}")
+                secretKey = key
                 val system = """You are AiCode Glass, a careful mobile coding assistant. Reply in the user's language (English or Persian).
 Use Markdown and fenced code blocks with language tags. You may use the supplied workspace tools.
 Never invent tool results. Do not claim to execute shell commands, run tests, access the web, or push Git changes: those capabilities are not available to you.
@@ -95,9 +96,9 @@ Prefer small edits; explain changes and mention that local execution is unavaila
                         var approved = call.name in WorkspaceTools.READ_ONLY
                         var preview: ToolPreview? = null
                         if (!approved) {
-                            preview = runCatching { tools.preview(conversation.workspaceId, call) }.getOrNull()
+                            preview = runCatching { tools.preview(current.workspaceId, call) }.getOrNull()
                             if (preview == null) {
-                                val result = tools.execute(conversation.workspaceId, call, prefs.agentMode, false)
+                                val result = tools.execute(current.workspaceId, call, prefs.agentMode, false)
                                 finishTool(invocation, result); dao.insertMessage(toolMessage(conversationId, call, result)); continue
                             }
                             val gate = CompletableDeferred<Boolean>(); decision = gate
@@ -105,7 +106,7 @@ Prefer small edits; explain changes and mention that local execution is unavaila
                             approved = try { gate.await() } finally { decision = null; _state.update { it.copy(pending = null, phase = "thinking") } }
                         }
                         dao.insertTool(invocation.copy(status = if (approved) "running" else "rejected"))
-                        val result = withContext(NonCancellable) { tools.execute(conversation.workspaceId, call, prefs.agentMode, approved) }
+                        val result = withContext(NonCancellable) { tools.execute(current.workspaceId, call, prefs.agentMode, approved) }
                         finishTool(invocation, result)
                         dao.insertMessage(toolMessage(conversationId, call, result))
                     }
@@ -120,7 +121,7 @@ Prefer small edits; explain changes and mention that local execution is unavaila
                 }
                 throw cancelled
             } catch (error: Exception) {
-                val detail = StreamingAiClient.sanitize(error.message ?: "Request failed", runCatching { secrets.get("api_${prefs.provider.name}") }.getOrDefault(""))
+                val detail = StreamingAiClient.sanitize(error.message ?: "Request failed", secretKey)
                 activeMessage?.let { dao.updateMessage(it.copy(content = _state.value.text, status = "error", error = detail)) }
                 _state.update { it.copy(busy = false, phase = "error", pending = null, error = detail) }
             } finally { decision?.complete(false); decision = null }

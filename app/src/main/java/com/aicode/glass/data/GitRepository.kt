@@ -9,6 +9,7 @@ import org.eclipse.jgit.dircache.DirCacheIterator
 import org.eclipse.jgit.lib.*
 import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
+import org.eclipse.jgit.transport.RemoteRefUpdate
 import org.eclipse.jgit.treewalk.CanonicalTreeParser
 import org.eclipse.jgit.treewalk.FileTreeIterator
 import org.eclipse.jgit.treewalk.EmptyTreeIterator
@@ -122,7 +123,17 @@ class GitRepository @Inject constructor(private val workspaces: WorkspaceReposit
             else -> error("Unknown Git action")
         }
         command.setTimeout(60); provider?.let { command.setCredentialsProvider(it) }
-        command.call(); Unit
+        when (val result = command.call()) {
+            is org.eclipse.jgit.api.PushResult -> {
+                val rejected = result.remoteUpdates.filter { it.status !in setOf(RemoteRefUpdate.Status.OK, RemoteRefUpdate.Status.UP_TO_DATE) }
+                if (rejected.isNotEmpty()) throw IllegalStateException("Push rejected: " + rejected.joinToString { "${it.remoteName}: ${it.status} ${it.message ?: ""}" })
+            }
+            is org.eclipse.jgit.api.PullResult -> {
+                val merge = result.mergeResult
+                if (result.fetchResult != null && merge != null && !merge.mergeStatus.isSuccessful) throw IllegalStateException("Pull did not complete: ${merge.mergeStatus}. No merge was forced.")
+            }
+        }
+        Unit
     }
     companion object {
         fun validateRemote(url: String) {
