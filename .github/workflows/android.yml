@@ -34,11 +34,11 @@ jobs:
           packages: 'platforms;android-34 build-tools;34.0.0 platform-tools'
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
-      - name: Verify Gradle distribution checksum
+      - name: Verify pinned Gradle distribution checksum
         run: |
-          EXPECTED=$(curl --fail --silent --show-error https://services.gradle.org/distributions/gradle-8.5-bin.zip.sha256)
-          printf 'distributionSha256Sum=%s\n' "$EXPECTED" >> gradle/wrapper/gradle-wrapper.properties
-          echo "Gradle 8.5 checksum: $EXPECTED"
+          EXPECTED=$(curl --fail --silent --show-error https://downloads.gradle.org/distributions/gradle-8.5-bin.zip.sha256 | tr -d '[:space:]')
+          test "$EXPECTED" = "9d926787066a081739e8200858338b4a69e837c3a821a33aca9db09dd4a41026"
+          grep -q "distributionSha256Sum=$EXPECTED" gradle/wrapper/gradle-wrapper.properties
       - name: Test and build
         shell: bash
         run: |
@@ -65,12 +65,21 @@ jobs:
                       detail = (case.attrib.get('classname', '') + '.' + case.attrib.get('name', '') + '\n' + (failure.text or failure.attrib.get('message', '')))[:6000]
                       detail = detail.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
                       print('::error title=Unit test failure::' + detail)
+      - name: Verify APK signature and record checksum
+        if: success()
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | head -12
+          sha256sum "$APK" > app/build/outputs/apk/debug/APK_SHA256.txt
       - name: Upload installable debug APK
         if: always()
         uses: actions/upload-artifact@v5
         with:
           name: AiCode-Glass-debug-${{ github.sha }}
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/debug/APK_SHA256.txt
           if-no-files-found: warn
           retention-days: 30
           compression-level: 0
