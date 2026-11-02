@@ -30,9 +30,9 @@ class ProviderCodecsTest {
         val messages = listOf(AiMessage("user", "read both"), AiMessage("assistant", "", listOf(ToolCall("a", "read_file", "{}"), ToolCall("b", "read_file", "{}"))), AiMessage("tool", "A", toolCallId = "a"), AiMessage("tool", "B", toolCallId = "b"))
         val body = Json.parseToJsonElement(AnthropicCodec().request(ProviderConfig(ProviderType.ANTHROPIC, "claude"), "system", messages, tools)).jsonObject
         val wire = body.getValue("messages").jsonArray
-        assertEquals(3, wire.size())
+        assertEquals(3, wire.size)
         val results = wire[2].jsonObject.getValue("content").jsonArray
-        assertEquals(2, results.size())
+        assertEquals(2, results.size)
         assertEquals("b", results[1].jsonObject["tool_use_id"]?.jsonPrimitive?.content)
         assertEquals("input_schema", body.getValue("tools").jsonArray[0].jsonObject.keys.first { it == "input_schema" })
     }
@@ -52,7 +52,7 @@ class ProviderCodecsTest {
         val messages = listOf(AiMessage("user", "read both"), AiMessage("assistant", "", calls), AiMessage("tool", "A", toolCallId = "1", toolName = "read_file"), AiMessage("tool", "B", toolCallId = "2", toolName = "list_files"))
         val body = Json.parseToJsonElement(GeminiCodec().request(ProviderConfig(ProviderType.GEMINI, "gemini"), "system", messages, tools)).jsonObject
         val wire = body.getValue("contents").jsonArray
-        assertEquals(2, wire[1].jsonObject.getValue("parts").jsonArray.size())
+        assertEquals(2, wire[1].jsonObject.getValue("parts").jsonArray.size)
         val results = wire[2].jsonObject.getValue("parts").jsonArray
         assertEquals("list_files", results[1].jsonObject.getValue("functionResponse").jsonObject["name"]?.jsonPrimitive?.content)
     }

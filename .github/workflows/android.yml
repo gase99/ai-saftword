@@ -14,13 +14,13 @@ concurrency:
 jobs:
   build:
     name: Test and build APK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -55,7 +55,7 @@ jobs:
           print('::error title=Gradle diagnostics::' + message)
       - name: Upload installable debug APK
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: AiCode-Glass-debug-${{ github.sha }}
           path: app/build/outputs/apk/debug/*.apk
@@ -64,7 +64,7 @@ jobs:
           compression-level: 0
       - name: Upload verification reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: AiCode-Glass-reports-${{ github.sha }}
           path: |
