@@ -1,0 +1,104 @@
+name: Android APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Test and build APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-34 build-tools;34.0.0 platform-tools'
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+      - name: Verify pinned Gradle distribution checksum
+        run: |
+          EXPECTED=$(curl --fail --silent --show-error https://downloads.gradle.org/distributions/gradle-8.5-bin.zip.sha256 | tr -d '[:space:]')
+          test "$EXPECTED" = "9d926787066a081739e8200858338b4a69e837c3a821a33aca9db09dd4a41026"
+          grep -q "distributionSha256Sum=$EXPECTED" gradle/wrapper/gradle-wrapper.properties
+      - name: Test and build
+        shell: bash
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --continue --console=plain :app:testDebugUnitTest :core:testDebugUnitTest :terminal-emulator:test :app:assembleDebug :app:lintDebug 2>&1 | tee /tmp/aicode-gradle.log
+      - name: Publish actionable build diagnostics
+        if: failure()
+        shell: python
+        run: |
+          import pathlib, re
+          p = pathlib.Path('/tmp/aicode-gradle.log')
+          text = p.read_text(errors='replace') if p.exists() else 'Gradle did not start.'
+          lines = text.splitlines()
+          selected = [line for line in lines if re.search(r'(^e:|error:|FAILED|What went wrong|Caused by:|Execution failed|Could not |Unresolved reference)', line)]
+          errors = [line for line in lines if line.startswith('e:') or 'error:' in line]
+          selected = errors if errors else lines[-100:]
+          message = '\n'.join(selected)[-14000:]
+          message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::error title=Gradle diagnostics::' + message)
+          import xml.etree.ElementTree as ET
+          for report in pathlib.Path('.').glob('**/build/test-results/**/TEST-*.xml'):
+              for case in ET.parse(report).getroot().iter('testcase'):
+                  for failure in list(case.findall('failure')) + list(case.findall('error')):
+                      detail = (case.attrib.get('classname', '') + '.' + case.attrib.get('name', '') + '\n' + (failure.text or failure.attrib.get('message', '')))[:6000]
+                      detail = detail.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                      print('::error title=Unit test failure::' + detail)
+      - name: Verify APK signature and record checksum
+        if: success()
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | head -12
+          sha256sum "$APK" > app/build/outputs/apk/debug/APK_SHA256.txt
+      - name: Upload installable debug APK
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: AiCode-Glass-debug-${{ github.sha }}
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/debug/APK_SHA256.txt
+          if-no-files-found: warn
+          retention-days: 30
+          compression-level: 0
+      - name: Upload verification reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: AiCode-Glass-reports-${{ github.sha }}
+          path: |
+            app/build/reports/
+            core/build/reports/
+            core/schemas/
+            terminal-emulator/build/reports/
+            terminal-view/build/reports/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Add download instructions to job summary
+        if: success()
+        run: |
+          echo '## AiCode Glass APK is ready' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Download **AiCode-Glass-debug-${{ github.sha }}** from the Artifacts section of this run.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Extract the ZIP and install the APK. This is a debug build, not a signed store release.' >> "$GITHUB_STEP_SUMMARY"
