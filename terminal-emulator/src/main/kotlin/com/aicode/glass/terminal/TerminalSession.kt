@@ -16,7 +16,7 @@ data class ShellToken(val value: String, val operator: Boolean = false)
 /** A real, sandboxed file shell, but intentionally not a PTY, Linux ABI or container. */
 class TerminalSession(val root: File) {
     private val mutex = Mutex()
-    private val _lines = MutableStateFlow(listOf(TerminalLine("AiCode Glass workspace shell\nType help for commands. This is a simulation, not Linux.", Kind.SUCCESS)))
+    private val _lines = MutableStateFlow(listOf(TerminalLine("AiCode Glass workspace shell\nType help for commands. This is a simulation, not Linux.", TerminalLine.Kind.SUCCESS)))
     val lines = _lines.asStateFlow()
     private val _cwd = MutableStateFlow(""); val cwd = _cwd.asStateFlow()
     private val _running = MutableStateFlow(false); val running = _running.asStateFlow()
@@ -79,7 +79,7 @@ class TerminalSession(val root: File) {
         val normalized = candidate.normalize()
         if (!normalized.startsWith(base)) throw IllegalArgumentException("Path escapes workspace: $path")
         var current = base
-        normalized.relativeTo(base).forEach { current = current.resolve(it); if (Files.isSymbolicLink(current)) throw IllegalArgumentException("Symbolic links are not supported.") }
+        base.relativize(normalized).forEach { current = current.resolve(it); if (Files.isSymbolicLink(current)) throw IllegalArgumentException("Symbolic links are not supported.") }
         if (!allowRoot && normalized == base && path !in listOf(".", "", "~")) {
             // Directory operations on root are allowed for listing, never removal.
         }

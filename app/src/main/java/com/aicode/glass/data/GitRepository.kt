@@ -131,3 +131,19 @@ class GitRepository @Inject constructor(private val workspaces: WorkspaceReposit
         }
     }
 }
+
+/** Read-only terminal bridge. The caller already owns the workspace transaction. */
+fun GitRepository.terminalCommand(root: java.io.File, args: List<String>): String {
+    if (!java.io.File(root, ".git").exists()) return "No Git repository. Initialize one in the Git tab."
+    return Git.open(root).use { git -> when (args.firstOrNull()) {
+        "status" -> "On branch ${git.repository.branch}\n" + git.status().call().let { status ->
+            (status.added.map { "staged added: $it" } + status.changed.map { "staged modified: $it" } + status.modified.map { "modified: $it" } + status.untracked.map { "untracked: $it" } + status.missing.map { "missing: $it" }).joinToString("\n").ifBlank { "Working tree clean" }
+        }
+        "branch" -> git.branchList().call().joinToString("\n") { (if (Repository.shortenRefName(it.name) == git.repository.branch) "* " else "  ") + Repository.shortenRefName(it.name) }
+        "log" -> if (git.repository.resolve(Constants.HEAD) == null) "No commits yet." else git.log().setMaxCount(20).call().joinToString("\n") { "${it.name.take(7)} ${it.shortMessage}" }
+        "diff" -> {
+            val out = ByteArrayOutputStream(); DiffFormatter(out).use { it.setRepository(git.repository); it.format(DirCacheIterator(git.repository.readDirCache()), FileTreeIterator(git.repository)) }; out.toString("UTF-8").take(24000).ifBlank { "No unstaged tracked changes." }
+        }
+        else -> "Read-only terminal Git: status, branch, log, diff. Use the Git tab for mutations and remote operations."
+    } }
+}
