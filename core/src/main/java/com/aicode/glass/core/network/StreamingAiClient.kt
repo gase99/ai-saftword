@@ -2,6 +2,7 @@ package com.aicode.glass.core.network
 
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.buffer
@@ -46,8 +47,8 @@ class StreamingAiClient @Inject constructor() : AiClient {
         }
         var finished = false
         fun accept(data: String) {
-            if (data.trim() == "[DONE]") { if (!finished) { codec.finish().forEach { trySend(it) }; finished = true }; close(); return }
-            codec.event(data).forEach { trySend(it) }
+            if (data.trim() == "[DONE]") { if (!finished) { codec.finish().forEach { trySendBlocking(it) }; finished = true }; close(); return }
+            codec.event(data).forEach { trySendBlocking(it) }
         }
         val source = EventSources.createFactory(client).newEventSource(builder.build(), object : EventSourceListener() {
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
@@ -57,7 +58,7 @@ class StreamingAiClient @Inject constructor() : AiClient {
             }
             override fun onClosed(eventSource: EventSource) {
                 if (!finished) {
-                    try { codec.finish().forEach { trySend(it) }; finished = true; close() }
+                    try { codec.finish().forEach { trySendBlocking(it) }; finished = true; close() }
                     catch (e: Exception) { channel.close(e) }
                 } else close()
             }

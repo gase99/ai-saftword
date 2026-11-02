@@ -79,29 +79,7 @@ class AnthropicCodec : ProviderCodec {
     private var inputTokens = 0; private var outputTokens = 0
     override fun request(config: ProviderConfig, system: String, messages: List<AiMessage>, tools: List<ToolSpec>): String = buildJsonObject {
         put("model", config.model); put("max_tokens", 4096); put("stream", true); put("system", system)
-        putJsonArray("messages") {
-            messages.forEach { message ->
-                if (message.role == "tool") {
-                    // Consecutive tool results must live in one Anthropic user turn.
-                    val last = lastOrNull()?.jsonObject
-                    if (last?.str("role") == "user" && last?.get("content") is JsonArray) {
-                        val content = last["content"]!!.jsonArray.toMutableList()
-                        content += toolResult(message)
-                        removeAt(lastIndex); addJsonObject { put("role", "user"); put("content", JsonArray(content)) }
-                    } else addJsonObject { put("role", "user"); putJsonArray("content") { add(toolResult(message)) } }
-                } else addJsonObject {
-                    put("role", message.role)
-                    if (message.toolCalls.isEmpty()) put("content", message.content)
-                    else putJsonArray("content") {
-                        if (message.content.isNotBlank()) addJsonObject { put("type", "text"); put("text", message.content) }
-                        message.toolCalls.forEach { call -> addJsonObject {
-                            put("type", "tool_use"); put("id", call.id); put("name", call.name)
-                            put("input", json.parseToJsonElement(call.arguments))
-                        } }
-                    }
-                }
-            }
-        }
+        put("messages", JsonArray(anthropicMessages(messages)))
         if (tools.isNotEmpty()) putJsonArray("tools") { tools.forEach { tool -> addJsonObject {
             put("name", tool.name); put("description", tool.description); put("input_schema", tool.parameters)
         } } }
@@ -140,30 +118,19 @@ class GeminiCodec : ProviderCodec {
     override fun request(config: ProviderConfig, system: String, messages: List<AiMessage>, tools: List<ToolSpec>): String = buildJsonObject {
         putJsonObject("systemInstruction") { putJsonArray("parts") { addJsonObject { put("text", system) } } }
         putJsonObject("generationConfig") { put("maxOutputTokens", 4096) }
-        putJsonArray("contents") {
-            messages.forEach { message ->
-                val role = if (message.role == "assistant") "model" else "user"
-                val last = lastOrNull()?.jsonObject
-                if (message.role == "tool" && last?.str("role") == "user") {
-                    val parts = last.arr("parts").toMutableList(); parts += part(message)
-                    removeAt(lastIndex); addJsonObject { put("role", "user"); put("parts", JsonArray(parts)) }
-                } else addJsonObject { put("role", role); putJsonArray("parts") { add(part(message)) } }
-            }
-        }
+        put("contents", JsonArray(geminiMessages(messages)))
         if (tools.isNotEmpty()) putJsonArray("tools") { addJsonObject { putJsonArray("functionDeclarations") {
             tools.forEach { tool -> addJsonObject { put("name", tool.name); put("description", tool.description); put("parameters", tool.parameters) } }
         } } }
     }.toString()
-    private fun part(message: AiMessage): JsonObject = buildJsonObject {
-        when {
-            message.role == "tool" -> putJsonObject("functionResponse") {
-                put("name", message.toolName ?: "workspace_tool"); putJsonObject("response") { put("content", message.content) }
-            }
-            message.toolCalls.isNotEmpty() -> putJsonObject("functionCall") {
-                val call = message.toolCalls.first(); put("name", call.name); put("args", json.parseToJsonElement(call.arguments))
-            }
-            else -> put("text", message.content)
-        }
+    private fun parts(message: AiMessage): List<JsonObject> = when {
+        message.role == "tool" -> listOf(buildJsonObject { putJsonObject("functionResponse") {
+            put("name", message.toolName ?: "workspace_tool"); putJsonObject("response") { put("content", message.content) }
+        } })
+        message.toolCalls.isNotEmpty() -> message.toolCalls.map { call -> buildJsonObject {
+            putJsonObject("functionCall") { put("name", call.name); put("args", json.parseToJsonElement(call.arguments)) }
+        } }
+        else -> listOf(buildJsonObject { put("text", message.content) })
     }
     override fun event(data: String): List<AiEvent> {
         val root = json.parseToJsonElement(data).jsonObject
@@ -180,4 +147,48 @@ class GeminiCodec : ProviderCodec {
         return out
     }
     override fun finish(): List<AiEvent> = listOfNotNull(usage)
+}
+
+private fun anthropicMessages(messages: List<AiMessage>): List<JsonObject> {
+    val out = mutableListOf<JsonObject>()
+    messages.forEach { message ->
+        if (message.role == "tool") {
+            val block = buildJsonObject { put("type", "tool_result"); put("tool_use_id", message.toolCallId ?: ""); put("content", message.content) }
+            val last = out.lastOrNull()
+            if (last?.str("role") == "user" && last?.get("content") is JsonArray) {
+                out[out.lastIndex] = buildJsonObject { put("role", "user"); put("content", JsonArray(last["content"]!!.jsonArray + block)) }
+            } else out += buildJsonObject { put("role", "user"); putJsonArray("content") { add(block) } }
+        } else out += buildJsonObject {
+            put("role", message.role)
+            if (message.toolCalls.isEmpty()) put("content", message.content)
+            else putJsonArray("content") {
+                if (message.content.isNotBlank()) addJsonObject { put("type", "text"); put("text", message.content) }
+                message.toolCalls.forEach { call -> addJsonObject {
+                    put("type", "tool_use"); put("id", call.id); put("name", call.name)
+                    put("input", json.parseToJsonElement(call.arguments))
+                } }
+            }
+        }
+    }
+    return out
+}
+private fun geminiMessages(messages: List<AiMessage>): List<JsonObject> {
+    data class Turn(val role: String, val parts: List<JsonObject>)
+    val out = mutableListOf<Turn>()
+    messages.forEach { message ->
+        val role = if (message.role == "assistant") "model" else "user"
+        val parts = when {
+            message.role == "tool" -> listOf(buildJsonObject { putJsonObject("functionResponse") {
+                put("name", message.toolName ?: "workspace_tool"); putJsonObject("response") { put("content", message.content) }
+            } })
+            message.toolCalls.isNotEmpty() -> message.toolCalls.map { call -> buildJsonObject {
+                putJsonObject("functionCall") { put("name", call.name); put("args", json.parseToJsonElement(call.arguments)) }
+            } })
+            else -> listOf(buildJsonObject { put("text", message.content) })
+        }
+        val last = out.lastOrNull()
+        if (message.role == "tool" && last?.role == "user") out[out.lastIndex] = Turn("user", last.parts + parts)
+        else out += Turn(role, parts)
+    }
+    return out.map { turn -> buildJsonObject { put("role", turn.role); put("parts", JsonArray(turn.parts)) } }
 }
