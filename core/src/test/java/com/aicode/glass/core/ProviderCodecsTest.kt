@@ -10,9 +10,10 @@ class ProviderCodecsTest {
     private val tools = listOf(ToolSpec("read_file", "Read a file", JsonTools.schema(mapOf("path" to "string"), listOf("path"))))
     @Test fun openAiAssemblesFragmentedToolArguments() {
         val codec = OpenAiCodec()
-        codec.event("""{"choices":[{"delta":{"content":"Hello","tool_calls":[{"index":0,"id":"call-1","function":{"name":"read_file","arguments":"{\"pa"}}]}}]}""")
+        val first = codec.event("""{"choices":[{"delta":{"content":"Hello","tool_calls":[{"index":0,"id":"call-1","function":{"name":"read_file","arguments":"{\"pa"}}]}}]}""")
+        assertEquals(listOf(AiEvent.Text("Hello")), first)
         val last = codec.event("""{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"th\":\"a.py\"}"}}]}}]}""")
-        assertEquals(listOf(AiEvent.Text("Hello")), last)
+        assertEquals(emptyList<AiEvent>(), last)
         val events = codec.finish()
         assertEquals(ToolCall("call-1", "read_file", """{"path":"a.py"}"""), (events.first() as AiEvent.Call).value)
         assertEquals(emptyList<AiEvent>(), codec.event("[DONE]"))
@@ -22,8 +23,8 @@ class ProviderCodecsTest {
         val body = Json.parseToJsonElement(OpenAiCodec().request(config, "system", messages, tools)).jsonObject
         assertEquals(true, body["stream"]?.jsonPrimitive?.boolean)
         val wire = body.getValue("messages").jsonArray
-        assertEquals("tool", wire[2].jsonObject["role"]?.jsonPrimitive?.content)
-        assertEquals("1", wire[2].jsonObject["tool_call_id"]?.jsonPrimitive?.content)
+        assertEquals("tool", wire[3].jsonObject["role"]?.jsonPrimitive?.content)
+        assertEquals("1", wire[3].jsonObject["tool_call_id"]?.jsonPrimitive?.content)
         assertEquals("function", body.getValue("tools").jsonArray[0].jsonObject["type"]?.jsonPrimitive?.content)
     }
     @Test fun anthropicGroupsAdjacentToolResults() {
@@ -31,7 +32,7 @@ class ProviderCodecsTest {
         val body = Json.parseToJsonElement(AnthropicCodec().request(ProviderConfig(ProviderType.ANTHROPIC, "claude"), "system", messages, tools)).jsonObject
         val wire = body.getValue("messages").jsonArray
         assertEquals(3, wire.size)
-        val results = wire[2].jsonObject.getValue("content").jsonArray
+        val results = wire[3].jsonObject.getValue("content").jsonArray
         assertEquals(2, results.size)
         assertEquals("b", results[1].jsonObject["tool_use_id"]?.jsonPrimitive?.content)
         assertEquals("input_schema", body.getValue("tools").jsonArray[0].jsonObject.keys.first { it == "input_schema" })
@@ -53,7 +54,7 @@ class ProviderCodecsTest {
         val body = Json.parseToJsonElement(GeminiCodec().request(ProviderConfig(ProviderType.GEMINI, "gemini"), "system", messages, tools)).jsonObject
         val wire = body.getValue("contents").jsonArray
         assertEquals(2, wire[1].jsonObject.getValue("parts").jsonArray.size)
-        val results = wire[2].jsonObject.getValue("parts").jsonArray
+        val results = wire[3].jsonObject.getValue("parts").jsonArray
         assertEquals("list_files", results[1].jsonObject.getValue("functionResponse").jsonObject["name"]?.jsonPrimitive?.content)
     }
     @Test fun geminiStreamsFunctionCallAndUsage() {
