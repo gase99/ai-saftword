@@ -35,7 +35,23 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
       - name: Test and build
-        run: ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
+        shell: bash
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --console=plain :app:testDebugUnitTest :terminal-emulator:test :app:assembleDebug :app:lintDebug 2>&1 | tee /tmp/aicode-gradle.log
+      - name: Publish actionable build diagnostics
+        if: failure()
+        shell: python
+        run: |
+          import pathlib, re
+          p = pathlib.Path('/tmp/aicode-gradle.log')
+          text = p.read_text(errors='replace') if p.exists() else 'Gradle did not start.'
+          lines = text.splitlines()
+          selected = [line for line in lines if re.search(r'(^e:|error:|FAILED|What went wrong|Caused by:|Execution failed|Could not |Unresolved reference)', line)]
+          if not selected: selected = lines[-60:]
+          message = '\n'.join(selected[-70:])[-14000:]
+          message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::error title=Gradle diagnostics::' + message)
       - name: Upload installable debug APK
         if: always()
         uses: actions/upload-artifact@v4
