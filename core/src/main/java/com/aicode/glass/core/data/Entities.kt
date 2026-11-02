@@ -18,7 +18,7 @@ data class MessageEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val conversationId: Long, val role: String, val content: String,
     val createdAt: Long = System.currentTimeMillis(), val status: String = "complete",
-    val toolCallsJson: String? = null, val toolCallId: String? = null, val error: String? = null
+    val toolCallsJson: String? = null, val toolCallId: String? = null, val toolName: String? = null, val error: String? = null
 )
 
 @Entity(tableName = "tool_invocations", indices = [Index("conversationId")])
