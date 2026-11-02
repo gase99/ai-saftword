@@ -20,7 +20,7 @@ data class EditorState(val path: String = "", val content: String = "", val orig
 @HiltViewModel
 class WorkspaceViewModel @Inject constructor(
     @ApplicationContext private val context: Context, val settings: SettingsRepository,
-    val workspaces: WorkspaceRepository, val checkpoints: CheckpointRepository, val agent: com.aicode.glass.agent.AgentCoordinator
+    val workspaces: WorkspaceRepository, val checkpoints: CheckpointRepository, private val git: GitRepository, val agent: com.aicode.glass.agent.AgentCoordinator
 ) : ViewModel() {
     val workspaceId = settings.preferences.map { it.activeWorkspace }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, "default")
     private val _session = MutableStateFlow(TerminalSession(workspaces.root("default"))); val session = _session.asStateFlow()
@@ -70,7 +70,7 @@ class WorkspaceViewModel @Inject constructor(
         if (command == "clear") { _session.value.clear(); return }
         val id = workspaceId.value; val current = _session.value
         terminalJob = viewModelScope.launch { try {
-            workspaces.transaction(id) { root -> current.execute(command, beforeMutation = { label -> checkpoints.captureLocked(root, id, "Terminal · " + label); Unit }, git = { args -> withContext(Dispatchers.IO) { terminalCommand(root, args) } }) }
+            workspaces.transaction(id) { root -> current.execute(command, beforeMutation = { label -> checkpoints.captureLocked(root, id, "Terminal · " + label); Unit }, git = { args -> withContext(Dispatchers.IO) { git.terminalCommand(root, args) } }) }
             refresh()
         } catch(e: CancellationException) { /* cooperative cancellation */ } catch(e: Exception) { _error.value = e.message } }
     }

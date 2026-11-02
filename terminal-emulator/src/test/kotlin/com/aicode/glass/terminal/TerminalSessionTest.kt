@@ -22,10 +22,10 @@ class TerminalSessionTest {
         assertEquals("hello", shell.lines.value.last().text)
     }
     @Test fun pipesAndReadOnlyCommandsWork() = runBlocking {
-        val root = folder.newFolder(); File(root, "a.txt").writeText("alpha\nbeta\nALPACA")
+        val root = folder.newFolder(); File(root, "a.txt").writeText("alpha\nbeta\nALPHABET")
         val shell = TerminalSession(root)
         shell.execute("cat a.txt | grep -i alpha")
-        assertEquals("alpha\nALPACA", shell.lines.value.last().text)
+        assertEquals("alpha\nALPHABET", shell.lines.value.last().text)
         shell.execute("cd ../..")
         assertTrue(shell.lines.value.last().text.contains("escapes workspace"))
     }

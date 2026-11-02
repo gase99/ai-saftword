@@ -122,7 +122,7 @@ class TerminalSession(val root: File) {
             "whoami" -> "developer (workspace simulation)"
             "uname" -> "AiCodeGlass workspace-shell 1.0 Android; not a Linux kernel"
             "git" -> git(operands)
-            "python", "python3", "node", "npm", "sh", "bash", "apk", "apt", "./gradlew" -> "Unsupported: this app does not include a Linux runtime. Use GitHub Actions to build Android projects. No command was executed."
+            "python", "python3", "node", "npm", "sh", "bash", "apk", "apt", "./gradlew" -> throw IllegalArgumentException("Unsupported: this app does not include a Linux runtime. Use GitHub Actions to build Android projects. No command was executed.")
             else -> throw IllegalArgumentException("Unknown command: $command. Type help.")
         }
     }
