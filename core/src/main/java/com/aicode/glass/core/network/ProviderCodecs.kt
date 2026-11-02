@@ -127,7 +127,7 @@ class GeminiCodec : ProviderCodec {
         val root = json.parseToJsonElement(data).jsonObject
         root["error"]?.let { throw AiException(it.toString().take(1000)) }
         val out = mutableListOf<AiEvent>()
-        root.arr("candidates").firstOrNull()?.jsonObject?.obj("content").arr("parts").forEach { element ->
+        root.arr("candidates").firstOrNull()?.jsonObject?.obj("content")?.arr("parts")?..forEach { element ->
             val part = element.jsonObject
             if (part.containsKey("functionCall")) {
                 val call = part.obj("functionCall")
