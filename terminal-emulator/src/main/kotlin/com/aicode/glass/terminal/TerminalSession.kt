@@ -27,7 +27,8 @@ class TerminalSession(val root: File) {
         if (command.isBlank() || command.length > 8192) return
         mutex.withLock {
             _running.value = true
-            append("${if (_cwd.value.isEmpty()) "~" else "~/${_cwd.value]} $ $command", TerminalLine.Kind.INPUT)
+            val prompt = if (_cwd.value.isEmpty()) "~" else "~/" + _cwd.value
+            append(prompt + " $ " + command, TerminalLine.Kind.INPUT)
             history.add(command); if (history.size > 100) history.removeAt(0)
             try {
                 withTimeout(15_000) { withContext(Dispatchers.IO) {
