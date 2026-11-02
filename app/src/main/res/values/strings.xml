@@ -155,4 +155,5 @@ create today?</string>
     <string name="workspaces">Workspaces</string>
     <string name="workspaces_detail">Each workspace has separate files, conversations, checkpoints, and Git history. Stop AI before switching.</string>
     <string name="you">You</string>
+    <string name="appearance">Appearance</string>
 </resources>
