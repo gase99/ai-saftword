@@ -25,7 +25,7 @@ class TerminalSessionTest {
         val root = folder.newFolder(); File(root, "a.txt").writeText("alpha\nbeta\nALPHABET")
         val shell = TerminalSession(root)
         shell.execute("cat a.txt | grep -i alpha")
-        assertEquals("alpha\nALPHABET", shell.lines.value.last().text)
+        assertEquals("alpha\nALPHABET", shell.lines.value.takeLast(2).joinToString("\n") { it.text })
         shell.execute("cd ../..")
         assertTrue(shell.lines.value.last().text.contains("escapes workspace"))
     }

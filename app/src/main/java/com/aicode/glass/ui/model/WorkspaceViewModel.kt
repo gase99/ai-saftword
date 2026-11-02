@@ -30,6 +30,7 @@ class WorkspaceViewModel @Inject constructor(
     private val _busy = MutableStateFlow(false); val busy = _busy.asStateFlow()
     private val _error = MutableStateFlow<String?>(null); val error = _error.asStateFlow()
     private val _notice = MutableStateFlow<String?>(null); val notice = _notice.asStateFlow()
+    @OptIn(ExperimentalCoroutinesApi::class)
     val snapshots = workspaceId.flatMapLatest { checkpoints.observe(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     private var terminalJob: Job? = null
     init { viewModelScope.launch { workspaceId.collect { id ->
