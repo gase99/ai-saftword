@@ -103,7 +103,7 @@ class WorkspaceRepository @Inject constructor(
         if (file == root.canonicalFile || !file.exists()) throw WorkspaceException("Cannot delete this path.")
         if (!file.deleteRecursively()) throw WorkspaceException("Could not delete the file.")
     }
-    fun walk(root: File): List<File> = root.walkTopDown().onEnter { it == root || it.name != ".git" }
+    fun walk(root: File): List<File> = root.walkTopDown().onEnter { if (Files.isSymbolicLink(it.toPath())) throw WorkspaceException("Workspace symbolic links are not supported."); it == root || it.name != ".git" }
         .filter { it.isFile }.also { files ->
             if (files.size > MAX_FILES) throw WorkspaceException("Workspace exceeds the 4,000-file snapshot limit.")
             if (files.sumOf { it.length() } > MAX_TOTAL) throw WorkspaceException("Workspace exceeds the 64 MB snapshot limit.")
@@ -121,10 +121,10 @@ class WorkspaceRepository @Inject constructor(
                 }
             }
             var count = 0; var total = 0L
-            java.util.zip.ZipFile(archive).use { zip ->
+            org.apache.commons.compress.archivers.zip.ZipFile(archive).use { zip ->
                 for (entry in zip.entries()) {
                     if (++count > MAX_FILES) throw WorkspaceException("Archive contains too many files.")
-                    val mode = (entry.externalAttributes ushr 16) and 0xF000
+                    val mode = entry.unixMode and 0xF000
                     if (mode == 0xA000) throw WorkspaceException("Archive symbolic links are not allowed.")
                     if (entry.isDirectory) continue
                     val name = entry.name
