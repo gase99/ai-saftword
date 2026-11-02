@@ -123,15 +123,6 @@ class GeminiCodec : ProviderCodec {
             tools.forEach { tool -> addJsonObject { put("name", tool.name); put("description", tool.description); put("parameters", tool.parameters) } }
         } } }
     }.toString()
-    private fun parts(message: AiMessage): List<JsonObject> = when {
-        message.role == "tool" -> listOf(buildJsonObject { putJsonObject("functionResponse") {
-            put("name", message.toolName ?: "workspace_tool"); putJsonObject("response") { put("content", message.content) }
-        } })
-        message.toolCalls.isNotEmpty() -> message.toolCalls.map { call -> buildJsonObject {
-            putJsonObject("functionCall") { put("name", call.name); put("args", json.parseToJsonElement(call.arguments)) }
-        } }
-        else -> listOf(buildJsonObject { put("text", message.content) })
-    }
     override fun event(data: String): List<AiEvent> {
         val root = json.parseToJsonElement(data).jsonObject
         root["error"]?.let { throw AiException(it.toString().take(1000)) }
@@ -183,7 +174,7 @@ private fun geminiMessages(messages: List<AiMessage>): List<JsonObject> {
             } })
             message.toolCalls.isNotEmpty() -> message.toolCalls.map { call -> buildJsonObject {
                 putJsonObject("functionCall") { put("name", call.name); put("args", json.parseToJsonElement(call.arguments)) }
-            } })
+            } }
             else -> listOf(buildJsonObject { put("text", message.content) })
         }
         val last = out.lastOrNull()
