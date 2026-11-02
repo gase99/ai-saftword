@@ -14,7 +14,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(val settings: SettingsRepository, val secrets: SecretStore) : ViewModel() {
     val preferences = settings.preferences.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppPreferences())
-    private val _configured = MutableStateFlow(ProviderType.entries.associateWith { secrets.contains("api_${it.name}") } + (ProviderType.OPENAI to secrets.contains("api_OPENAI")))
+    private val _configured = MutableStateFlow(ProviderType.entries.associateWith { secrets.contains("api_${it.name}") })
     val configured = _configured.asStateFlow()
     val gitTokenConfigured = MutableStateFlow(secrets.contains("git_token"))
     private val _notice = MutableStateFlow<String?>(null); val notice = _notice.asStateFlow()

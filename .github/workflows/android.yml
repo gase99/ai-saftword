@@ -70,6 +70,7 @@ jobs:
           path: |
             app/build/reports/
             core/build/reports/
+            core/schemas/
             terminal-emulator/build/reports/
             terminal-view/build/reports/
           if-no-files-found: ignore

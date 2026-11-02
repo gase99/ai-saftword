@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.aicode.glass.ui.screens
 
 import androidx.compose.foundation.*

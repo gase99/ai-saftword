@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.aicode.glass.ui.screens
 
 import androidx.activity.compose.BackHandler
@@ -90,7 +92,7 @@ fun TerminalScreen(filesInitially: Boolean = false, vm: WorkspaceViewModel = hil
             if (files.isEmpty()) item { EmptyState(Icons.Outlined.FolderOpen, stringResource(R.string.empty_folder), stringResource(R.string.empty_folder_detail), Modifier.fillMaxWidth()) }
             items(files, key = { it.path }) { file -> GlassCard(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp)) { Row(Modifier.clickable { if (file.directory) vm.directory(file.path) else vm.open(file.path) }.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(if (file.directory) Icons.Outlined.Folder else Icons.Outlined.Description, null, tint = if (file.directory) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(file.path.substringAfterLast('/'), style = MaterialTheme.typography.bodyMedium); if (!file.directory) Text("${file.size} B", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.typography.labelSmall.color) }
+                Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(file.path.substringAfterLast('/'), style = MaterialTheme.typography.bodyMedium); if (!file.directory) Text("${file.size} B", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 if (!file.directory) IconButton(onClick = { delete = file.path }) { Icon(Icons.Outlined.DeleteOutline, stringResource(R.string.delete), Modifier.size(18.dp)) }
                 else Icon(Icons.Outlined.ChevronRight, null)
             } } }

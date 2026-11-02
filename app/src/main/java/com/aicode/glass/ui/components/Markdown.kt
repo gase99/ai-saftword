@@ -48,7 +48,8 @@ fun MarkdownText(text: String, modifier: Modifier = Modifier) {
         }
         is BlockQuote -> GlassCard(Modifier.fillMaxWidth(), RoundedCornerShape(12.dp)) { Column(Modifier.padding(12.dp)) { Children(node, depth) } }
         is ThematicBreak -> HorizontalDivider()
-        is HtmlBlock, is HtmlInline -> Text(node.literal, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+        is HtmlBlock -> Text(node.literal, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+        is HtmlInline -> Text(node.literal, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
         else -> Children(node, depth)
     }
 }

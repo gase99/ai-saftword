@@ -1,5 +1,7 @@
 package com.aicode.glass
 
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
