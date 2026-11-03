@@ -65,9 +65,9 @@ class TerminalSession(val root: File, val name: String = "Terminal 1", val id: S
             currentCoroutineContext().ensureActive()
             val result = if (command.words.first() == "git") host.git(command.words.drop(1)) else run(command.words, stdout)
             stdout = result.stdout; stderr = result.stderr; status = result.exitCode
-            if (stderr.isNotBlank()) appendRaw(stderr.trimEnd('\n'), TerminalLine.Kind.ERROR)
         }
         val redirects = pipeline.commands.last().redirects
+        if (stderr.isNotBlank() && redirects.none { it.stream == 2 }) appendRaw(stderr.trimEnd('\n'), TerminalLine.Kind.ERROR)
         if (redirects.any { it.stream == 2 && it.merge }) stdout += stderr
         for (redirect in redirects.filterNot { it.merge }) {
             val target = resolve(redirect.target)
@@ -80,6 +80,8 @@ class TerminalSession(val root: File, val name: String = "Terminal 1", val id: S
             if (redirect.stream == 1) stdout = "" else stderr = ""
         }
         if (stdout.isNotBlank()) appendRaw(stdout.trimEnd('\n'), TerminalLine.Kind.OUTPUT)
+        val files = root.walkTopDown().onEnter { it.name != ".git" }.filter { it.isFile }.take(4001).toList()
+        require(files.size <= 4000 && files.sumOf { it.length() } <= 64L * 1024 * 1024 && files.all { it.length() <= MAX_FILE }) { "Workspace quota exceeded. Restore the pre-command checkpoint." }
         previousStatus = status; return status
     }
     private fun append(message: TerminalMessage, kind: TerminalLine.Kind) {

@@ -15,6 +15,7 @@ android {
         versionCode = (project.findProperty("releaseVersionCode") as String?)?.toIntOrNull() ?: 2
         versionName = (project.findProperty("releaseVersionName") as String?) ?: "2.0.0"
         resourceConfigurations += listOf("en", "fa")
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.8" }
@@ -72,6 +73,11 @@ dependencies {
     implementation("org.eclipse.jgit:org.eclipse.jgit:6.10.0.202406032230-r")
     implementation("org.commonmark:commonmark:0.21.0")
     implementation("org.apache.commons:commons-compress:1.26.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test:runner:1.5.2")
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.02.00"))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")

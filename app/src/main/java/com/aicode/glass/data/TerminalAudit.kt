@@ -11,7 +11,7 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Opt-in metadata only: never records environment variables, API keys or command text. */
+/** Opt-in metadata only: records command names only, never arguments, environment variables, API keys or file content. */
 @Singleton
 class TerminalAudit @Inject constructor(@ApplicationContext context: Context) {
     private val mutex = Mutex(); private val dir = File(context.filesDir, "terminal-audit")

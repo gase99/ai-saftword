@@ -78,7 +78,7 @@ class McpClient @Inject constructor(private val http: OkHttpClient) {
             if(notification || it.code == 202) return@use RpcResponse(JsonObject(emptyMap()), newSession)
             val body = it.body ?: throw IOException("Empty MCP response")
             if(body.contentLength() > 1024 * 1024) throw IOException("MCP response exceeds 1 MB")
-            val text = body.source().readString(Charsets.UTF_8).also { text -> if(text.length > 1024 * 1024) throw IOException("MCP response exceeds 1 MB") }
+            val source = body.source(); source.request(1024L * 1024 + 1); if(source.buffer.size > 1024 * 1024) throw IOException("MCP response exceeds 1 MB"); val text = source.readString(Charsets.UTF_8)
             val element = if(it.header("Content-Type")?.contains("text/event-stream") == true) {
                 text.lineSequence().filter { line -> line.startsWith("data:") }.map { line -> line.removePrefix("data:").trim() }.filter { it != "[DONE]" }
                     .map { Json.parseToJsonElement(it) }.firstOrNull { obj -> obj.jsonObject["id"]?.jsonPrimitive?.contentOrNull == id.toString() } ?: throw IOException("MCP stream ended without the request response")
