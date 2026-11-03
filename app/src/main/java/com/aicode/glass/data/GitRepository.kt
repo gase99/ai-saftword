@@ -145,7 +145,7 @@ class GitRepository @Inject constructor(private val workspaces: WorkspaceReposit
     }
 }
 
-/** Read-only terminal bridge. The caller already owns the workspace transaction. */
+/** Local-only terminal bridge. Caller owns workspace lock and pre-mutation checkpoint. */
 fun GitRepository.terminalCommand(root: java.io.File, args: List<String>, author: String = "AiCode Glass", email: String = "developer@localhost"): com.aicode.glass.terminal.CommandOutput {
     if (args.firstOrNull() == "init") { Git.init().setDirectory(root).setInitialBranch("main").call().close(); return com.aicode.glass.terminal.CommandOutput(stdout = "Initialized local Git repository") }
     if (!java.io.File(root, ".git").exists()) return com.aicode.glass.terminal.CommandOutput(stderr = "No Git repository. Initialize one in the Git tab.", exitCode = 1)

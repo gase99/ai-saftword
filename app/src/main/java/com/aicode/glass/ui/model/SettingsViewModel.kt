@@ -24,7 +24,7 @@ class SettingsViewModel @Inject constructor(val settings: SettingsRepository, va
     private val _testing = MutableStateFlow(false); val testing = _testing.asStateFlow()
     private val actionMutex = Mutex()
     init { viewModelScope.launch { refreshCounts() } }
-    private suspend fun refreshCounts() { _keyCounts.value = ProviderType.entries.associateWith { keys.count(it) } }
+    private suspend fun refreshCounts() { _keyCounts.value = ProviderType.entries.associateWith { keys.count(it) }; _configured.value = _keyCounts.value.mapValues { it.value > 0 } }
     val preferences = settings.preferences.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppPreferences())
     private val _configured = MutableStateFlow(ProviderType.entries.associateWith { secrets.contains("api_${it.name}") })
     val configured = _configured.asStateFlow()

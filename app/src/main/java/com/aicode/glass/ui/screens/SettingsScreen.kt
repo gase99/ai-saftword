@@ -28,6 +28,7 @@ import com.aicode.glass.ui.model.SettingsViewModel
 fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     val prefs by vm.preferences.collectAsStateWithLifecycle(); val configured by vm.configured.collectAsStateWithLifecycle()
     val gitToken by vm.gitTokenConfigured.collectAsStateWithLifecycle(); val notice by vm.notice.collectAsStateWithLifecycle(); val error by vm.error.collectAsStateWithLifecycle()
+    val keyCounts by vm.keyCounts.collectAsStateWithLifecycle()
     val config = prefs.configs.getValue(prefs.provider)
     var model by rememberSaveable(prefs.provider) { mutableStateOf(config.model) }
     var endpoint by rememberSaveable(prefs.provider) { mutableStateOf(config.endpoint.ifBlank { config.provider.baseUrl }) }
@@ -64,6 +65,8 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                 if (configured[prefs.provider] == true) OutlinedButton(onClick = { removeKey = true }) { Icon(Icons.Outlined.DeleteOutline, stringResource(R.string.remove_key), Modifier.size(19.dp)) }
             }
             if(prefs.provider == ProviderType.CUSTOM || prefs.provider == ProviderType.OLLAMA) ToggleRow(stringResource(R.string.local_http), localHttp) { localHttp = it }
+            Text(stringResource(R.string.keys_saved, keyCounts[prefs.provider] ?: 0), style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(R.string.key_pool_detail), style = MaterialTheme.typography.bodySmall)
             Text(stringResource(R.string.key_security), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         ConnectionSettings(vm)

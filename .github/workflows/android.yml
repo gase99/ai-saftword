@@ -43,7 +43,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          ./gradlew --no-daemon --continue --stacktrace --console=plain :app:testDebugUnitTest :core:testDebugUnitTest :terminal-emulator:test :app:assembleDebug :app:lintDebug :app:assembleRelease 2>&1 | tee /tmp/aicode-gradle.log
+          ./gradlew --no-daemon --continue --stacktrace --console=plain -PexportRoomSchema :app:testDebugUnitTest :core:testDebugUnitTest :terminal-emulator:test :app:assembleDebug :app:lintDebug :app:assembleRelease 2>&1 | tee /tmp/aicode-gradle.log
       - name: Upload R8 mapping and unsigned release verification
         if: always()
         uses: actions/upload-artifact@v5

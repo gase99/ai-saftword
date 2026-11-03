@@ -12,9 +12,9 @@ android {
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
 }
-ksp {
-    arg("room.schemaLocation", layout.buildDirectory.dir("generated/room-schemas").get().asFile.absolutePath)
-    arg("room.generateKotlin", "false")
+// Only one processor exports the schema. Concurrent debug/release exports race on the same v1 file.
+if (providers.gradleProperty("exportRoomSchema").isPresent) {
+    ksp { arg("room.schemaLocation", layout.buildDirectory.dir("generated/room-schemas").get().asFile.absolutePath) }
 }
 dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
