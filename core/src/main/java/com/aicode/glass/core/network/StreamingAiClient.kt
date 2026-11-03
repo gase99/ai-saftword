@@ -142,7 +142,7 @@ class StreamingAiClient @Inject constructor(private val http: OkHttpClient) : Ai
                     "Ollama Cloud serves the OpenAI-compatible API at https://ollama.com/v1 (native routes are under /api). Endpoint was resolved to $url."
                 status == 404 && config.provider == ProviderType.GEMINI ->
                     "Model '${config.model}' is not available to this key; pick a current model such as gemini-3.5-flash or gemini-3.8-flash."
-                404 -> "Check the endpoint path and the model name; GET /models lists what this credential can use."
+                status == 404 -> "Check the endpoint path and the model name; GET /models lists what this credential can use."
                 status == 400 && (lower.contains("model") || lower.contains("not found")) -> "Provider rejected the model '${config.model}'; check the model name."
                 status == 429 -> "Provider rate limit or quota reached."
                 status != null && status >= 500 -> "Provider-side failure; retry later."
