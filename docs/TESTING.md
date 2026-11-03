@@ -47,4 +47,4 @@ Ordinary CI runs app/core/terminal JVM tests, debug and minified release assembl
 
 To validate a cloud account, configure its key as a protected `provider-validation` environment secret and dispatch **Live provider validation** from main. Select one provider per run. For Ollama on a real phone use the in-app connection test; for public CI provide an HTTPS tunnel you control. Never expose an unauthenticated Ollama server directly to the internet. The workflow does not print keys or response content.
 
-The main-branch emulator job installs the debug app and checks launch/settings on Android 34. It is not a full RTL, accessibility, provider-account or signed-release certification.
+The push-build emulator job installs the debug app and checks launch/settings and English → Persian → English switching on Android 34. It is not a full RTL, accessibility, provider-account or signed-release certification.
