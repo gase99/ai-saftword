@@ -10,7 +10,7 @@ import org.junit.Test
 import java.util.concurrent.TimeUnit
 
 class NetworkPhase2Test {
-    private fun client() = OkHttpClient.Builder().addInterceptor(LocalHttpInterceptor()).retryOnConnectionFailure(false).build()
+    private fun client() = OkHttpClient.Builder().readTimeout(400, TimeUnit.MILLISECONDS).addInterceptor(LocalHttpInterceptor()).retryOnConnectionFailure(false).build()
     private fun config(url: String = "") = ProviderConfig(ProviderType.CUSTOM, "test", url, true)
     private fun response(body: String, code: Int = 200) = MockResponse().setResponseCode(code).setHeader("Content-Type", "text/event-stream").setBody(body)
     private val text = "data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\ndata: [DONE]\n\n"
@@ -31,7 +31,7 @@ class NetworkPhase2Test {
     @Test fun neverReplaysMidstreamFailure() = runBlocking {
         val server = MockWebServer(); server.start()
         try {
-            server.enqueue(response("data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n" + ": " + "x".repeat(500) + "\n\n").setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY))
+            server.enqueue(response("data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n").setHeader("Content-Length", 1000))
             val seen = mutableListOf<AiEvent>()
             assertTrue(fails { ResilientAiClient(StreamingAiClient(client())).stream(config(server.url("/v1").toString()), "secret123456", "sys", listOf(AiMessage("user", "hi")), emptyList()).toList(seen) })
             assertEquals(1, server.requestCount); assertEquals(1, seen.filterIsInstance<AiEvent.Text>().size)

@@ -23,7 +23,7 @@ class McpClientTest {
             server.enqueue(json("""{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"echo","description":"Echo input","inputSchema":{"type":"object","properties":{"text":{"type":"string"}},"required":["text"],"additionalProperties":false}}]}}"""))
             val connection = client().connect(config, "mcp-secret-token")
             assertEquals(1, connection.tools.size); assertEquals("session-1", connection.session)
-            server.enqueue(MockResponse().setHeader("Content-Type", "text/event-stream").setBody("event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":3,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"hello\"}],\"isError\":false}}\\n"))
+            server.enqueue(MockResponse().setHeader("Content-Type", "text/event-stream").setBody("event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":3,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"hello\"}],\"isError\":false}}\n\n"))
             val result = client().call(connection, "echo", buildJsonObject { put("text", "hi") }, "mcp-secret-token")
             assertEquals("hello", result.text); assertFalse(result.isError)
             val init = server.takeRequest(1, TimeUnit.SECONDS)!!; assertEquals("Bearer mcp-secret-token", init.getHeader("Authorization")); assertNull(init.getHeader("X-AiCode-Local-HTTP"))
