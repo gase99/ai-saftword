@@ -20,6 +20,7 @@ object ShellParser {
                 quote != null -> if (c == quote) quote = null else if (c == '\\' && quote == '"' && i + 1 < input.length && input[i + 1] in listOf('"', '\\', '$', '`')) word.append(input[++i]) else word.append(c)
                 c == '\'' || c == '"' -> { quote = c; started = true }
                 c == '\\' && i + 1 < input.length -> { word.append(input[++i]); started = true }
+                c == '\n' || c == '\r' -> { flush(); result += ShellToken(";", true) }
                 c.isWhitespace() -> flush()
                 c == '#' && !started -> return result.also { if (quote != null) throw IllegalArgumentException("Unclosed quote") }
                 c in listOf('|', '&', ';', '>') -> {
@@ -35,34 +36,29 @@ object ShellParser {
         require(quote == null) { "Unclosed quote" }; flush(); return result
     }
     fun parse(input: String): List<ShellPipeline> {
-        val tokens = tokenize(input); val pipelines = mutableListOf<ShellPipeline>(); var commands = mutableListOf<ShellCommand>(); var words = mutableListOf<String>(); var redirects = mutableListOf<Redirection>(); var next = ""
-        fun command() { if (words.isNotEmpty() || redirects.isNotEmpty()) { commands += ShellCommand(words.toList(), redirects.toList()); words = mutableListOf(); redirects = mutableListOf() } }
-        fun pipeline() { command(); require(commands.isNotEmpty()) { "Empty pipeline" }; pipelines += ShellPipeline(commands.toList(), next); commands = mutableListOf(); next = "" }
-        tokens.forEach { token ->
-            if (!token.operator) words += token.value else when (token.value) {
-                "|", "1>", "2>", ">", ">>", "2>&1" -> {
-                    if (token.value == "|") { command(); require(words.isEmpty()) }
-                    else words += token.value
-                }
-                "&&", "||", ";" -> { pipeline(); next = token.value }
-            }
+        val tokens = tokenize(input); val pipelines = mutableListOf<ShellPipeline>(); var commands = mutableListOf<List<String>>(); var words = mutableListOf<String>(); var connector = ""
+        fun finishCommand() { if(words.isNotEmpty()) { commands += words.toList(); words = mutableListOf() } }
+        fun finishPipeline(next: String) {
+            finishCommand(); require(commands.isNotEmpty()) { "Empty pipeline" }
+            pipelines += ShellPipeline(commands.toList(), next); connector = next; commands = mutableListOf()
         }
-        // Redirection tokens are arguments inside each command, parsed after pipe splitting.
-        pipeline()
-        require(pipelines.size <= 30) { "At most 30 statements per submission." }
-        return pipelines.map { p -> p.copy(commands = p.commands.map { c ->
-            val w = mutableListOf<String>(); val r = mutableListOf<Redirection>(); var i = 0
-            while (i < c.words.size) {
-                val arg = c.words[i]
-                if (arg in listOf(">", ">>", "1>", "2>")) {
-                    require(i + 1 < c.words.size) { "Missing redirect target" }
-                    r += Redirection(c.words[++i], if (arg.startsWith("2")) 2 else 1, arg == ">>")
-                } else if (arg == "2>&1") r += Redirection("", 2, merge = true)
+        tokens.forEach label@{ token -> if(!token.operator) words += token.value else when(token.value) {
+            "|" -> { finishCommand(); require(commands.isNotEmpty()) { "Missing pipe input" } }
+            "&&", "||", ";" -> { if(words.isEmpty() && commands.isEmpty() && token.value == ";") return@label; finishPipeline(token.value) }
+            else -> words += token.value
+        } }
+        if(words.isNotEmpty() || commands.isNotEmpty()) finishPipeline("")
+        require(pipelines.size in 1..30) { "Submit one to thirty statements." }
+        return pipelines.map { pipeline -> pipeline.copy(commands = pipeline.commands.map { raw ->
+            val w = mutableListOf<String>(); val redirects = mutableListOf<Redirection>(); var i = 0
+            while(i < raw.size) { val arg = raw[i]
+                if(arg in listOf(">", ">>", "1>", "2>")) { require(i + 1 < raw.size) { "Missing redirect target" }; redirects += Redirection(raw[++i], if(arg.startsWith("2")) 2 else 1, arg == ">>") }
+                else if(arg == "2>&1") redirects += Redirection("", 2, merge = true)
                 else w += arg
                 i++
             }
-            require(w.isNotEmpty()) { "Missing command" }; ShellCommand(w, r)
-        }).also { require(it.commands.size in 1..6) { "A pipeline supports one to six commands." } } }
+            require(w.isNotEmpty()) { "Missing command" }; ShellCommand(w, redirects)
+        }).also { require(it.commands.size <= 6) { "At most six pipeline stages." } } }
     }
     fun isMutating(pipeline: ShellPipeline): Boolean = pipeline.commands.any { command ->
         val name = command.words.first()

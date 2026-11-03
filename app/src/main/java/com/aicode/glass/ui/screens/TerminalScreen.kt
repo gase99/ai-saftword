@@ -45,8 +45,8 @@ fun TerminalScreen(filesInitially: Boolean = false, vm: WorkspaceViewModel = hil
     var tab by rememberSaveable { mutableIntStateOf(if (filesInitially) 1 else 0) }
     val editor by vm.editor.collectAsStateWithLifecycle(); var discard by remember { mutableStateOf(false) }
     val busy by vm.busy.collectAsStateWithLifecycle(); val error by vm.error.collectAsStateWithLifecycle(); val notice by vm.notice.collectAsStateWithLifecycle()
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importZip) }
     val auditLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-ndjson")) { uri -> uri?.let(vm::exportAudit) }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importZip) }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri -> uri?.let(vm::exportZip) }
     BackHandler(enabled = editor != null) { if (editor?.dirty == true) discard = true else vm.closeEditor() }
     Column(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {

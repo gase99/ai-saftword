@@ -27,5 +27,6 @@ class McpRegistry @Inject constructor(private val client: McpClient, private val
         }
         val result = McpState(connections, false, errors.joinToString("\n").ifBlank { null }, System.currentTimeMillis()); _state.value = result; result
     }
+    suspend fun call(connection: McpConnection, tool: String, args: JsonObject) = client.call(connection, tool, args, token(connection.server.id))
     fun clear() { _state.value = McpState() }
 }

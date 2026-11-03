@@ -56,7 +56,7 @@ class WorkspaceTools @Inject constructor(private val workspaces: WorkspaceReposi
         if(call.name.startsWith("mcp_")) {
             if(!approved || mode == "ask") return ToolResult("External MCP execution was not approved.", true)
             val (connection, tool) = mcp.find(call.name) ?: return ToolResult("MCP tool is disconnected. Refresh in Settings.", true)
-            return try { val args = JsonTools.parseArgs(call.arguments); require(call.arguments.length <= 65536); com.aicode.glass.core.mcp.SchemaValidator.validate(tool.schema, args); val result = mcp.call(connection, tool.name, args, mcp.token(connection.server.id)); ToolResult(result.text, result.isError) }
+            return try { val args = JsonTools.parseArgs(call.arguments); require(call.arguments.length <= 65536); com.aicode.glass.core.mcp.SchemaValidator.validate(tool.schema, args); val result = mcp.call(connection, tool.name, args); ToolResult(result.text, result.isError) }
             catch(e: kotlinx.coroutines.CancellationException) { throw e } catch(e: Exception) { ToolResult((e.message ?: "MCP call failed").take(2000), true) }
         }
         if (call.name !in READ_ONLY + WRITES) return ToolResult("Tool is not enabled.", true)
