@@ -36,11 +36,11 @@ object ShellParser {
         require(quote == null) { "Unclosed quote" }; flush(); return result
     }
     fun parse(input: String): List<ShellPipeline> {
-        val tokens = tokenize(input); val pipelines = mutableListOf<ShellPipeline>(); var commands = mutableListOf<List<String>>(); var words = mutableListOf<String>(); var connector = ""
-        fun finishCommand() { if(words.isNotEmpty()) { commands += words.toList(); words = mutableListOf() } }
+        val tokens = tokenize(input); val pipelines = mutableListOf<ShellPipeline>(); var commands = mutableListOf<ShellCommand>; var words = mutableListOf<String>(); var connector = ""
+        fun finishCommand() { if(words.isNotEmpty()) { commands += ShellCommand(words.toList()); words = mutableListOf() } }
         fun finishPipeline(next: String) {
             finishCommand(); require(commands.isNotEmpty()) { "Empty pipeline" }
-            pipelines += ShellPipeline(commands.toList(), next); connector = next; commands = mutableListOf()
+            pipelines += ShellPipeline(commands.toList(), next); commands = mutableListOf()
         }
         tokens.forEach label@{ token -> if(!token.operator) words += token.value else when(token.value) {
             "|" -> { finishCommand(); require(commands.isNotEmpty()) { "Missing pipe input" } }
@@ -49,7 +49,7 @@ object ShellParser {
         } }
         if(words.isNotEmpty() || commands.isNotEmpty()) finishPipeline("")
         require(pipelines.size in 1..30) { "Submit one to thirty statements." }
-        return pipelines.map { pipeline -> pipeline.copy(commands = pipeline.commands.map { raw ->
+        return pipelines.map { pipeline -> pipeline.copy(commands = pipeline.commands.map { command -> val raw = command.words
             val w = mutableListOf<String>(); val redirects = mutableListOf<Redirection>(); var i = 0
             while(i < raw.size) { val arg = raw[i]
                 if(arg in listOf(">", ">>", "1>", "2>")) { require(i + 1 < raw.size) { "Missing redirect target" }; redirects += Redirection(raw[++i], if(arg.startsWith("2")) 2 else 1, arg == ">>") }

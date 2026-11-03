@@ -3,6 +3,7 @@ package com.aicode.glass.core.mcp
 import com.aicode.glass.core.data.SettingsRepository
 import com.aicode.glass.core.security.SecretStore
 import kotlinx.coroutines.flow.*
+import kotlinx.serialization.json.JsonObject
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
