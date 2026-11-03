@@ -63,7 +63,7 @@ jobs:
           text = p.read_text(errors='replace') if p.exists() else 'Gradle did not start.'
           lines = text.splitlines()
           selected = [line for line in lines if re.search(r'(^e:|error:|FAILED|What went wrong|Caused by:|Execution failed|Could not |Unresolved reference)', line)]
-          errors = [line for line in lines if line.startswith('e:') or 'error:' in line]
+          errors = [line for line in lines if line.startswith('e:') or 'error:' in line or 'Caused by:' in line or 'at androidx.room' in line]
           selected = errors if errors else lines[-100:]
           message = '\n'.join(selected)[-14000:]
           message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')

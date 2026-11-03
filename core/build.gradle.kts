@@ -14,7 +14,7 @@ android {
 }
 ksp {
     arg("room.schemaLocation", layout.buildDirectory.dir("generated/room-schemas").get().asFile.absolutePath)
-    arg("room.generateKotlin", "true")
+    arg("room.generateKotlin", "false")
 }
 dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
