@@ -51,7 +51,8 @@ tasks.withType<Test>().configureEach {
     liveProviderEnvironment.forEach { name -> System.getenv(name)?.let { environment(name, it) } }
     // Provider failures must be readable in the CI log, not buried in an HTML report.
     testLogging {
-        events("started", "passed", "skipped", "failed", "standardOut", "standardErr")
+        // Valid TestLogEvent names: started, passed, skipped, failed, standardOut, standardError.
+        events("started", "passed", "skipped", "failed", "standardOut", "standardError")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
         showExceptions = true
         showCauses = true
