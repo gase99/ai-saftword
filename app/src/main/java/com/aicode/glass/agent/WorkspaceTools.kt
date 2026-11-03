@@ -31,7 +31,7 @@ class WorkspaceTools @Inject constructor(private val workspaces: WorkspaceReposi
         val args = validatedArgs(call)
         val path = args.getValue("path").jsonPrimitive.content
         val root = workspaces.root(workspaceId)
-        val before = runCatching { workspaces.read(root, path).content }.getOrDefault("")
+        val before = if(workspaces.resolve(root, path).exists()) workspaces.read(root, path).content else ""
         val after = if (call.name == "write_file") args.getValue("content").jsonPrimitive.content else {
             val old = args.getValue("old_text").jsonPrimitive.content
             val new = args.getValue("new_text").jsonPrimitive.content
@@ -47,7 +47,11 @@ class WorkspaceTools @Inject constructor(private val workspaces: WorkspaceReposi
         require(args.keys.all { it in properties }) { "Unexpected tool arguments" }
         spec.parameters.getValue("required").jsonArray.forEach { require(it.jsonPrimitive.content in args) { "Missing tool argument: $it" } }
         properties.forEach { name -> args[name]?.let { value ->
-            require(value is JsonPrimitive && value.isString) { "$name must be a string" }
+            when(spec.parameters.getValue("properties").jsonObject.getValue(name).jsonObject["type"]?.jsonPrimitive?.content) {
+                "string" -> require(value is JsonPrimitive && value.isString) { "$name must be a string" }
+                "boolean" -> require(value is JsonPrimitive && value.booleanOrNull != null) { "$name must be a boolean" }
+                "integer" -> require(value is JsonPrimitive && value.longOrNull != null) { "$name must be an integer" }
+            }
         } }
         require(call.arguments.length <= 2 * WorkspaceRepository.MAX_FILE) { "Tool arguments too large" }
         return args
@@ -65,7 +69,7 @@ class WorkspaceTools @Inject constructor(private val workspaces: WorkspaceReposi
             val args = validatedArgs(call)
             fun path() = args.getValue("path").jsonPrimitive.content
             when (call.name) {
-                "analyze_parallel" -> ToolResult(analysts.analyze(args.getValue("task").jsonPrimitive.content.take(4000), workspaceId))
+                "analyze_parallel" -> { require(!analysts.state.value.running) { "An analysis batch is already running." }; ToolResult(analysts.analyze(args.getValue("task").jsonPrimitive.content.take(4000), workspaceId)) }
                 "list_files" -> ToolResult(workspaces.transaction(workspaceId) { root -> workspaces.list(root, args["path"]?.jsonPrimitive?.content ?: "").joinToString("\n") { "${if (it.directory) "dir " else "file"} ${it.path} (${it.size} bytes)" }.ifBlank { "Empty directory" } })
                 "read_file" -> ToolResult(workspaces.read(workspaceId, path()).content)
                 "search_files" -> {
@@ -89,7 +93,7 @@ class WorkspaceTools @Inject constructor(private val workspaces: WorkspaceReposi
                     val expected = preview(workspaceId, call)
                     var checkpoint = ""
                     workspaces.transaction(workspaceId) { root ->
-                        val old = runCatching { workspaces.read(root, expected.path).content }.getOrDefault("")
+                        val old = if(workspaces.resolve(root, expected.path).exists()) workspaces.read(root, expected.path).content else ""
                         if (old != expected.before) throw WorkspaceException("File changed since approval. Request the edit again.")
                         if (call.name == "replace_text") {
                             val oldText = args.getValue("old_text").jsonPrimitive.content

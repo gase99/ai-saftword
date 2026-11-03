@@ -111,7 +111,7 @@ Prefer small edits; explain changes and mention that local execution is unavaila
                             approved = try { gate.await() } finally { decision = null; _state.update { it.copy(pending = null, phase = "thinking") } }
                         }
                         dao.insertTool(invocation.copy(status = if (approved) "running" else "rejected"))
-                        val result = withContext(NonCancellable) { tools.execute(current.workspaceId, call, prefs.agentMode, approved) }
+                        val result = if(call.name in WorkspaceTools.WRITES) withContext(NonCancellable) { tools.execute(current.workspaceId, call, prefs.agentMode, approved) } else tools.execute(current.workspaceId, call, prefs.agentMode, approved)
                         finishTool(invocation, result)
                         dao.insertMessage(toolMessage(conversationId, call, result))
                     }

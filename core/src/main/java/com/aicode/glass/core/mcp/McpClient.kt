@@ -20,28 +20,28 @@ import kotlin.coroutines.resumeWithException
     val qualifiedName: String get() = "mcp_" + serverId.filter { it.isLetterOrDigit() }.take(8) + "_" + name.filter { it.isLetterOrDigit() || it == '_' }.take(48)
 }
 data class McpResult(val text: String, val isError: Boolean)
-data class McpConnection(val server: McpServer, val protocol: String, val session: String?, val tools: List<McpTool>)
+data class McpConnection(val server: McpServer, val protocol: String, val session: String?, val tools: List<McpTool>) { internal val requestIds: AtomicLong = AtomicLong(1) }
 
 /** MCP Streamable HTTP client. No shell/stdio transport, arbitrary URL fetch or silent tool execution. */
 @Singleton
 class McpClient @Inject constructor(private val http: OkHttpClient) {
-    private val nextId = ThreadLocal.withInitial { AtomicLong(1) }
     
     suspend fun connect(server: McpServer, token: String): McpConnection = withContext(Dispatchers.IO) {
         EndpointPolicy.validate(server.endpoint, server.allowLocalHttp)
         val client = http.newBuilder().callTimeout(45, java.util.concurrent.TimeUnit.SECONDS).build()
         val headers = Headers.Builder().apply { if(token.isNotBlank()) set("Authorization", "Bearer $token") }.build()
+        val requestIds = AtomicLong(1)
         val init = rpc(client, server, headers, null, "initialize", buildJsonObject {
             put("protocolVersion", "2025-03-26"); putJsonObject("capabilities", {})
             putJsonObject("clientInfo") { put("name", "AiCodeGlass"); put("version", "2.0.0") }
-        })
+        }, requestIds = requestIds)
         val protocol = init.result.getValue("protocolVersion").jsonPrimitive.content
         if (protocol !in setOf("2024-11-05", "2025-03-26", "2025-06-18")) throw IOException("Unsupported MCP protocol: $protocol")
         val session = init.session
-        rpc(client, server, headers, session, "notifications/initialized", JsonObject(emptyMap()), notification = true)
+        rpc(client, server, headers, session, "notifications/initialized", JsonObject(emptyMap()), notification = true, requestIds = requestIds)
         val tools = mutableListOf<McpTool>(); var cursor: String? = null
         do {
-            val result = rpc(client, server, headers, session, "tools/list", buildJsonObject { if(cursor != null) put("cursor", cursor) }).result
+            val result = rpc(client, server, headers, session, "tools/list", buildJsonObject { if(cursor != null) put("cursor", cursor) }, requestIds = requestIds).result
             result["tools"]?.jsonArray?.forEach { element ->
                 val obj = element.jsonObject; val name = obj.getValue("name").jsonPrimitive.content
                 require(name.matches(Regex("[A-Za-z0-9_-]{1,64}"))) { "Invalid MCP tool name" }
@@ -52,20 +52,20 @@ class McpClient @Inject constructor(private val http: OkHttpClient) {
             cursor = result["nextCursor"]?.jsonPrimitive?.contentOrNull
         } while(cursor != null && tools.size < 64)
         if(tools.size > 64) throw IOException("MCP server exposes too many tools (maximum 64).")
-        McpConnection(server, protocol, session, tools.distinctBy { it.qualifiedName })
+        McpConnection(server, protocol, session, tools.distinctBy { it.qualifiedName }).also { it.requestIds.set(requestIds.get()) }
     }
     suspend fun call(connection: McpConnection, tool: String, arguments: JsonObject, token: String): McpResult = withContext(Dispatchers.IO) {
         val client = http.newBuilder().callTimeout(90, java.util.concurrent.TimeUnit.SECONDS).build()
         val headers = Headers.Builder().apply { if(token.isNotBlank()) set("Authorization", "Bearer $token") }.build()
-        val result = rpc(client, connection.server, headers, connection.session, "tools/call", buildJsonObject { put("name", tool); put("arguments", arguments) }).result
+        val result = rpc(client, connection.server, headers, connection.session, "tools/call", buildJsonObject { put("name", tool); put("arguments", arguments) }, requestIds = connection.requestIds).result
         val text = result["content"]?.jsonArray?.mapNotNull { element ->
             val obj = element.jsonObject; when(obj["type"]?.jsonPrimitive?.content) { "text" -> obj["text"]?.jsonPrimitive?.content; "image", "audio", "resource" -> "[Non-text MCP content omitted]"; else -> null }
         }?.joinToString("\n") ?: result.toString()
         McpResult(text.take(24000), result["isError"]?.jsonPrimitive?.booleanOrNull ?: false)
     }
     private data class RpcResponse(val result: JsonObject, val session: String?)
-    private suspend fun rpc(client: OkHttpClient, server: McpServer, headers: Headers, session: String?, method: String, params: JsonObject, notification: Boolean = false): RpcResponse {
-        val id = if(notification) 0L else nextId.get().getAndIncrement()
+    private suspend fun rpc(client: OkHttpClient, server: McpServer, headers: Headers, session: String?, method: String, params: JsonObject, notification: Boolean = false, requestIds: AtomicLong): RpcResponse {
+        val id = if(notification) 0L else requestIds.getAndIncrement()
         val payload = buildJsonObject { put("jsonrpc", "2.0"); if(!notification) put("id", id); put("method", method); put("params", params) }
         val request = Request.Builder().url(server.endpoint).headers(headers).header("Accept", "application/json, text/event-stream")
             .header("Content-Type", "application/json").header("MCP-Protocol-Version", "2025-03-26")

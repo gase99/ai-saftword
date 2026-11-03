@@ -114,7 +114,7 @@ class TerminalSession(val root: File, val name: String = "Terminal 1", val id: S
         val dir = resolve("."); return dir.listFiles().orEmpty().filter { it.name != ".git" && regex.matches(it.name) }.map { it.name }.sorted().take(500).ifEmpty { listOf(pattern) }
     }
     private fun run(args: List<String>, stdin: String): CommandOutput {
-        val name = args.first(); val rest = args.drop(1); val flags = rest.filter { it.startsWith("-") }; val operands = rest.filterNot { it.startsWith("-") }.flatMap { glob(it) }
+        val name = args.first(); val rest = args.drop(1); val flags = rest.filter { it.startsWith("-") }; val operands = rest.filterNot { it.startsWith("-") }.flatMap { if(name in setOf("cat", "ls", "rm", "cp", "mv", "touch", "wc")) glob(it) else listOf(it) }
         fun number(flag: String, default: Int): Int { val i = rest.indexOf(flag); return if (i < 0) default else rest.getOrNull(i + 1)?.toIntOrNull()?.coerceIn(1, 1000) ?: throw IllegalArgumentException("Invalid numeric option") }
         fun file(index: Int = 0) = resolve(operands.getOrNull(index) ?: ".")
         fun ok(text: String = "") = CommandOutput(stdout = text)

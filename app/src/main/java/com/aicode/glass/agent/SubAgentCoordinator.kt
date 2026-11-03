@@ -8,6 +8,8 @@ import com.aicode.glass.di.ApplicationScope
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -24,8 +26,9 @@ class SubAgentCoordinator @Inject constructor(
     private val _state = MutableStateFlow(AnalysisState()); val state = _state.asStateFlow()
     private var job: Job? = null
     private val permits = Semaphore(3)
+    private val batchMutex = Mutex()
     fun start(prompt: String, workspaceId: String) {
-        if(job?.isActive == true || prompt.isBlank()) return
+        if(job?.isActive == true || batchMutex.isLocked || prompt.isBlank()) return
         val tasks = listOf("Architecture", "Security", "Tests").map { AnalysisTask(role = it, prompt = prompt.take(4000), workspaceId = workspaceId) }
         _state.value = AnalysisState(tasks, true)
         job = scope.launch { run(tasks, prompt.take(4000), workspaceId); _state.update { it.copy(running = false) } }
@@ -36,7 +39,7 @@ class SubAgentCoordinator @Inject constructor(
         _state.value = AnalysisState(tasks, true)
         try { run(tasks, prompt, workspaceId) } finally { _state.update { it.copy(running = false) } }
     }
-    private suspend fun run(tasks: List<AnalysisTask>, prompt: String, workspaceId: String) = coroutineScope {
+    private suspend fun run(tasks: List<AnalysisTask>, prompt: String, workspaceId: String) = batchMutex.withLock { coroutineScope {
         try {
             val prefs = settings.preferences.first(); val config = prefs.configs.getValue(prefs.provider)
             val pool = keys.get(prefs.provider).ifEmpty { if(prefs.provider == ProviderType.OLLAMA) listOf("") else throw AiException("Configure a provider before starting analysis.") }
@@ -65,7 +68,7 @@ class SubAgentCoordinator @Inject constructor(
             } }.awaitAll().joinToString("\n\n")
         } catch(e: CancellationException) { _state.update { it.copy(running = false, tasks = it.tasks.map { task -> if(task.status in setOf("queued", "running")) task.copy(status = "cancelled") else task }) }; throw e }
         catch(e: Exception) { _state.update { it.copy(running = false, tasks = it.tasks.map { task -> if(task.status in setOf("queued", "running")) task.copy(status = "error", output = e.message ?: "Analysis failed") else task }) }; "Analysis failed: ${e.message}" }
-    }
+    } }
     private fun update(id: String, status: String, output: String? = null) = _state.update { state -> state.copy(tasks = state.tasks.map { if(it.id == id) it.copy(status = status, output = output ?: it.output) else it }) }
     private suspend fun <T> Semaphore.withPermitTimeout(block: suspend () -> T): T = withTimeout(180_000) { acquire(); try { block() } finally { release() } }
 }
