@@ -65,6 +65,14 @@ class NetworkPhase2Test {
             assertTrue("Expected empty stream failure, got $error", error is AiException)
         } finally { server.shutdown() }
     }
+    @Test fun toolOnlyStreamIsSuccessful() = runBlocking {
+        val server = MockWebServer(); server.start()
+        try {
+            server.enqueue(response("data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call1\",\"function\":{\"name\":\"read_file\",\"arguments\":\"{}\"}}]}}]}\n\ndata: [DONE]\n\n"))
+            val events = StreamingAiClient(client()).stream(config(server.url("/v1").toString()), "secret123456", "sys", listOf(AiMessage("user","read")), emptyList()).toList()
+            assertEquals("read_file", events.filterIsInstance<AiEvent.Call>().single().value.name)
+        } finally { server.shutdown() }
+    }
     @Test fun ollamaUsesOpenAiProtocolWithoutApiKey() = runBlocking {
         val server = MockWebServer(); server.start()
         try {

@@ -16,5 +16,9 @@ class SmokeTest {
         compose.waitUntil(10000) { try { compose.onNodeWithText("Settings").fetchSemanticsNode(); true } catch(_: Throwable) { false } }
         compose.onNodeWithText("Settings").performClick()
         compose.onNodeWithText("AI connection").assertIsDisplayed()
+        compose.onNodeWithText("فارسی").performClick()
+        compose.onNodeWithText("اتصال هوش مصنوعی").assertIsDisplayed()
+        compose.onNodeWithText("English").performClick()
+        compose.onNodeWithText("AI connection").assertIsDisplayed()
     }
 }

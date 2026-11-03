@@ -116,7 +116,7 @@ jobs:
   emulator-smoke:
     name: Android 34 launch smoke test
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:

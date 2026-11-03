@@ -45,7 +45,11 @@ class StreamingAiClient @Inject constructor(private val http: OkHttpClient) : Ai
         }
         var finished = false; var received = false; var semantic = false
         fun accept(data: String) {
-            if (data.trim() == "[DONE]") { if (!semantic) { channel.close(AiException("Provider closed without text or tool calls.")); return }; if (!finished) { codec.finish().forEach { trySendBlocking(it) }; finished = true }; close(); return }
+            if (data.trim() == "[DONE]") {
+                if (!finished) { codec.finish().forEach { if(it is AiEvent.Text || it is AiEvent.Call) semantic = true; trySendBlocking(it) }; finished = true }
+                if (!semantic) { channel.close(AiException("Provider closed without text or tool calls.")); return }
+                close(); return
+            }
             codec.event(data).forEach { if(it is AiEvent.Text || it is AiEvent.Call) semantic = true; trySendBlocking(it) }
         }
         val source = EventSources.createFactory(client).newEventSource(builder.build(), object : EventSourceListener() {
@@ -56,11 +60,10 @@ class StreamingAiClient @Inject constructor(private val http: OkHttpClient) : Ai
                 }
             }
             override fun onClosed(eventSource: EventSource) {
-                if (!semantic) { channel.close(AiException("Provider closed without text or tool calls.")); return }
-                if (!finished) {
-                    try { codec.finish().forEach { trySendBlocking(it) }; finished = true; close() }
-                    catch (e: Exception) { channel.close(e) }
-                } else close()
+                try {
+                    if (!finished) { codec.finish().forEach { if(it is AiEvent.Text || it is AiEvent.Call) semantic = true; trySendBlocking(it) }; finished = true }
+                    if (!semantic) channel.close(AiException("Provider closed without text or tool calls.")) else close()
+                } catch (e: Exception) { channel.close(e) }
             }
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
                 val body = try { response?.body?.string()?.take(1600) ?: "" } catch (_: Exception) { "" }

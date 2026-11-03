@@ -48,7 +48,7 @@ class ResilientAiClient @Inject constructor(private val transport: StreamingAiCl
                 } catch (e: CancellationException) { throw e }
                 catch (e: Exception) {
                     last = e
-                    if (e is AiException && e.statusCode == 429) cooldowns.cool(label, 60_000)
+                    if (e is AiException && e.statusCode == 429) { cooldowns.cool(label, 60_000); break }
                     if (e is AiException && e.statusCode in setOf(401, 403)) break
                     if (emitted || !RetryDecision.retryable(e) || count >= budget) break
                     val wait = RetryDecision.backoff(retry); count++
