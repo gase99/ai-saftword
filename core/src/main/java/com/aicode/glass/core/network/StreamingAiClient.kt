@@ -23,14 +23,12 @@ import javax.inject.Singleton
 interface AiClient { fun stream(config: ProviderConfig, key: String, system: String, messages: List<AiMessage>, tools: List<ToolSpec>): Flow<AiEvent> }
 
 @Singleton
-class StreamingAiClient @Inject constructor() : AiClient {
-    private val client = OkHttpClient.Builder().connectTimeout(25, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS).callTimeout(300, TimeUnit.SECONDS)
-        .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build()
+class StreamingAiClient @Inject constructor(private val http: OkHttpClient) : AiClient {
+    private val client = http
     override fun stream(config: ProviderConfig, key: String, system: String, messages: List<AiMessage>, tools: List<ToolSpec>): Flow<AiEvent> = callbackFlow {
-        if (key.isBlank()) throw AiException("Add an API key in Settings before sending a message.")
-        val base = if (config.provider == ProviderType.CUSTOM) config.endpoint.trim().trimEnd('/') else config.provider.baseUrl
-        validateEndpoint(base)
+        if (key.isBlank() && config.provider != ProviderType.OLLAMA) throw AiException("Add an API key in Settings before sending a message.")
+        val base = if (config.provider == ProviderType.CUSTOM || config.provider == ProviderType.OLLAMA) config.endpoint.trim().trimEnd('/').ifBlank { config.provider.baseUrl } else config.provider.baseUrl
+        EndpointPolicy.validate(base, config.allowLocalHttp)
         if (config.model.isBlank() || config.model.length > 160) throw AiException("Choose a valid model in Settings.")
         val codec = Codecs.create(config.provider)
         val url = when (config.provider) {
@@ -38,29 +36,34 @@ class StreamingAiClient @Inject constructor() : AiClient {
             ProviderType.GEMINI -> "$base/models/${config.model}:streamGenerateContent?alt=sse"
             else -> "$base/chat/completions"
         }
-        val builder = Request.Builder().url(url).post(codec.request(config, system, messages, tools).toRequestBody("application/json; charset=utf-8".toMediaType()))
+        val builder = Request.Builder().url(url).apply { if (config.allowLocalHttp) header("X-AiCode-Local-HTTP", "enabled") }.post(codec.request(config, system, messages, tools).toRequestBody("application/json; charset=utf-8".toMediaType()))
             .header("Accept", "text/event-stream").header("Content-Type", "application/json")
         when (config.provider) {
             ProviderType.ANTHROPIC -> builder.header("x-api-key", key).header("anthropic-version", "2023-06-01")
             ProviderType.GEMINI -> builder.header("x-goog-api-key", key)
-            else -> builder.header("Authorization", "Bearer $key")
+            else -> if (key.isNotBlank()) builder.header("Authorization", "Bearer $key")
         }
-        var finished = false
+        var finished = false; var received = false; var semantic = false
         fun accept(data: String) {
-            if (data.trim() == "[DONE]") { if (!finished) { codec.finish().forEach { trySendBlocking(it) }; finished = true }; close(); return }
-            codec.event(data).forEach { trySendBlocking(it) }
+            if (data.trim() == "[DONE]") {
+                if (!finished) { codec.finish().forEach { if(it is AiEvent.Text || it is AiEvent.Call) semantic = true; trySendBlocking(it) }; finished = true }
+                if (!semantic) { channel.close(AiException("Provider closed without text or tool calls.")); return }
+                close(); return
+            }
+            codec.event(data).forEach { if(it is AiEvent.Text || it is AiEvent.Call) semantic = true; trySendBlocking(it) }
         }
         val source = EventSources.createFactory(client).newEventSource(builder.build(), object : EventSourceListener() {
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+                received = true
                 try { accept(data) } catch (e: Exception) {
                     channel.close(AiException(sanitize(e.message ?: "Invalid provider response", key), cause = e)); eventSource.cancel()
                 }
             }
             override fun onClosed(eventSource: EventSource) {
-                if (!finished) {
-                    try { codec.finish().forEach { trySendBlocking(it) }; finished = true; close() }
-                    catch (e: Exception) { channel.close(e) }
-                } else close()
+                try {
+                    if (!finished) { codec.finish().forEach { if(it is AiEvent.Text || it is AiEvent.Call) semantic = true; trySendBlocking(it) }; finished = true }
+                    if (!semantic) channel.close(AiException("Provider closed without text or tool calls.")) else close()
+                } catch (e: Exception) { channel.close(e) }
             }
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
                 val body = try { response?.body?.string()?.take(1600) ?: "" } catch (_: Exception) { "" }
@@ -74,8 +77,7 @@ class StreamingAiClient @Inject constructor() : AiClient {
     companion object {
         fun validateEndpoint(endpoint: String) {
             val uri = try { URI(endpoint) } catch (_: Exception) { throw AiException("Invalid endpoint URL.") }
-            if (uri.scheme != "https" || uri.host.isNullOrBlank() || uri.userInfo != null || uri.query != null || uri.fragment != null)
-                throw AiException("Endpoints must use HTTPS without embedded credentials, query parameters or fragments.")
+            EndpointPolicy.validate(endpoint)
         }
         fun sanitize(text: String, key: String): String = (if (key.length > 5) text.replace(key, "[redacted]") else text)
             .replace(Regex("Bearer\\s+[A-Za-z0-9._~+/-]+=*"), "Bearer [redacted]").take(1800)

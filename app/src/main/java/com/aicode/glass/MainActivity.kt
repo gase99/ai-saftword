@@ -53,7 +53,7 @@ class MainActivity : ComponentActivity() {
                 base.createConfigurationContext(configuration)
             }
             AiCodeTheme(darkTheme = dark) {
-                CompositionLocalProvider(LocalContext provides localized, LocalLayoutDirection provides if (prefs.language == "fa") LayoutDirection.Rtl else LayoutDirection.Ltr) {
+                CompositionLocalProvider(LocalContext provides localized, LocalReducedMotion provides prefs.reducedMotion, LocalLayoutDirection provides if (prefs.language == "fa") LayoutDirection.Rtl else LayoutDirection.Ltr) {
                     GlassBackground(Modifier.fillMaxSize()) { AppShell(vm) }
                 }
             }

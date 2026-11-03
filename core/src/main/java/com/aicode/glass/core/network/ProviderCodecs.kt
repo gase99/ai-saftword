@@ -11,7 +11,7 @@ interface ProviderCodec {
 }
 
 object Codecs { fun create(provider: ProviderType): ProviderCodec = when (provider) {
-    ProviderType.OPENAI, ProviderType.CUSTOM -> OpenAiCodec()
+    ProviderType.OPENAI, ProviderType.CUSTOM, ProviderType.OLLAMA -> OpenAiCodec()
     ProviderType.ANTHROPIC -> AnthropicCodec()
     ProviderType.GEMINI -> GeminiCodec()
 } }

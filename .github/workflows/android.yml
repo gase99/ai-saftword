@@ -43,7 +43,17 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          ./gradlew --no-daemon --continue --console=plain :app:testDebugUnitTest :core:testDebugUnitTest :terminal-emulator:test :app:assembleDebug :app:lintDebug 2>&1 | tee /tmp/aicode-gradle.log
+          ./gradlew --no-daemon --no-parallel --continue --stacktrace --console=plain -PexportRoomSchema :app:testDebugUnitTest :core:testDebugUnitTest :terminal-emulator:test :app:assembleDebug :app:lintDebug :app:assembleRelease 2>&1 | tee /tmp/aicode-gradle.log
+      - name: Upload R8 mapping and unsigned release verification
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: AiCode-Glass-release-verification-${{ github.sha }}
+          path: |
+            app/build/outputs/apk/release/
+            app/build/outputs/mapping/release/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Publish actionable build diagnostics
         if: failure()
         shell: python
@@ -53,7 +63,7 @@ jobs:
           text = p.read_text(errors='replace') if p.exists() else 'Gradle did not start.'
           lines = text.splitlines()
           selected = [line for line in lines if re.search(r'(^e:|error:|FAILED|What went wrong|Caused by:|Execution failed|Could not |Unresolved reference)', line)]
-          errors = [line for line in lines if line.startswith('e:') or 'error:' in line]
+          errors = [line for line in lines if line.startswith('e:') or 'error:' in line or 'Caused by:' in line or 'at androidx.room' in line]
           selected = errors if errors else lines[-100:]
           message = '\n'.join(selected)[-14000:]
           message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
@@ -91,7 +101,7 @@ jobs:
           path: |
             app/build/reports/
             core/build/reports/
-            core/schemas/
+            core/build/generated/room-schemas/
             terminal-emulator/build/reports/
             terminal-view/build/reports/
           if-no-files-found: ignore
@@ -102,3 +112,4 @@ jobs:
           echo '## AiCode Glass APK is ready' >> "$GITHUB_STEP_SUMMARY"
           echo 'Download **AiCode-Glass-debug-${{ github.sha }}** from the Artifacts section of this run.' >> "$GITHUB_STEP_SUMMARY"
           echo 'Extract the ZIP and install the APK. This is a debug build, not a signed store release.' >> "$GITHUB_STEP_SUMMARY"
+

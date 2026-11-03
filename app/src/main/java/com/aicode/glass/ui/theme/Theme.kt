@@ -7,7 +7,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.animation.core.*
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.blur
@@ -15,6 +17,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.unit.dp
+
+val LocalReducedMotion = staticCompositionLocalOf { false }
 
 val GlassInk = Color(0xFF080E1D)
 val GlassMint = Color(0xFF7DE2D1)
@@ -43,12 +47,16 @@ fun AiCodeTheme(darkTheme: Boolean = true, content: @Composable () -> Unit) {
 @Composable
 fun GlassBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
     val dark = MaterialTheme.colorScheme.background == GlassInk
+    val reduceMotion = LocalReducedMotion.current
+    val transition = rememberInfiniteTransition(label = "liquid-glass")
+    val drift by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(18000, easing = LinearEasing), RepeatMode.Reverse), label = "glass-drift")
+    val offset = if(reduceMotion) 0f else drift
     Box(modifier.background(MaterialTheme.colorScheme.background)) {
         Box(Modifier.fillMaxSize().background(Brush.linearGradient(if (dark) listOf(Color(0xFF102338), Color(0xFF080E1D), Color(0xFF171B35)) else listOf(Color(0xFFE1F5F0), Color(0xFFF1F6FC), Color(0xFFE8E8FC)))))
-        Box(Modifier.align(Alignment.TopEnd).offset(x = 90.dp, y = (-80).dp).size(310.dp)
+        Box(Modifier.align(Alignment.TopEnd).graphicsLayer { translationX = offset * 65f; translationY = offset * 95f }.offset(x = 90.dp, y = (-80).dp).size(310.dp)
             .then(if (Build.VERSION.SDK_INT >= 31) Modifier.blur(85.dp) else Modifier)
             .background(Brush.radialGradient(listOf(GlassMint.copy(alpha = if (dark) .20f else .30f), Color.Transparent))))
-        Box(Modifier.align(Alignment.CenterStart).offset(x = (-130).dp, y = 130.dp).size(340.dp)
+        Box(Modifier.align(Alignment.CenterStart).graphicsLayer { translationX = -offset * 80f; translationY = offset * 55f }.offset(x = (-130).dp, y = 130.dp).size(340.dp)
             .then(if (Build.VERSION.SDK_INT >= 31) Modifier.blur(90.dp) else Modifier)
             .background(Brush.radialGradient(listOf(GlassLavender.copy(alpha = .15f), Color.Transparent))))
         content()

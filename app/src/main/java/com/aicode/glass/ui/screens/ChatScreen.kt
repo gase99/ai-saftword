@@ -43,6 +43,7 @@ fun ChatScreen(onSettings: () -> Unit, onFiles: () -> Unit, vm: ChatViewModel = 
     val messages by vm.messages.collectAsStateWithLifecycle(); val tools by vm.tools.collectAsStateWithLifecycle()
     val conversations by vm.conversations.collectAsStateWithLifecycle()
     var input by rememberSaveable(prefs.activeConversation) { mutableStateOf("") }
+    val analysis by vm.analysts.state.collectAsStateWithLifecycle(); var showAnalysis by remember { mutableStateOf(false) }
     var history by remember { mutableStateOf(false) }; var deleteId by remember { mutableStateOf<Long?>(null) }
     val list = rememberLazyListState(); val scope = rememberCoroutineScope()
     val busy = agent.busy && agent.conversationId == prefs.activeConversation
@@ -54,6 +55,7 @@ fun ChatScreen(onSettings: () -> Unit, onFiles: () -> Unit, vm: ChatViewModel = 
             Spacer(Modifier.width(8.dp))
             FilterChip(selected = prefs.agentMode == "ask", onClick = { vm.mode("ask") }, enabled = !agent.busy, label = { Text(stringResource(R.string.ask_mode)) }, leadingIcon = { Icon(Icons.Outlined.School, null, Modifier.size(16.dp)) })
             Spacer(Modifier.weight(1f))
+            IconButton(onClick = { showAnalysis = true }) { Icon(Icons.Outlined.AccountTree, stringResource(R.string.subagents)) }
             IconButton(onClick = { history = true }) { Icon(Icons.Outlined.History, stringResource(R.string.conversations)) }
             IconButton(onClick = vm::newConversation, enabled = !agent.busy) { Icon(Icons.Outlined.AddComment, stringResource(R.string.new_chat)) }
         }
@@ -105,6 +107,14 @@ fun ChatScreen(onSettings: () -> Unit, onFiles: () -> Unit, vm: ChatViewModel = 
             }
         }
     }
+    if(showAnalysis) ModalBottomSheet(onDismissRequest = { showAnalysis = false }) {
+        Column(Modifier.padding(20.dp).navigationBarsPadding().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            SectionTitle(stringResource(R.string.subagents), stringResource(R.string.analysis_detail))
+            Button(onClick = { vm.analysts.start("Review this workspace for architecture, security and test coverage. Identify concrete findings and next steps.", prefs.activeWorkspace) }, enabled = !analysis.running && !agent.busy) { Text(stringResource(R.string.analyze_workspace)) }
+            if(analysis.running) TextButton(onClick = vm.analysts::cancel) { Text(stringResource(R.string.cancel_analysis)) }
+            analysis.tasks.forEach { task -> GlassCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text(task.role + " · " + task.status, style = MaterialTheme.typography.titleSmall); if(task.output.isNotBlank()) MarkdownText(task.output) } } }
+        }
+    }
     if (history) ModalBottomSheet(onDismissRequest = { history = false }) {
         Column(Modifier.padding(horizontal = 22.dp).padding(bottom = 32.dp).navigationBarsPadding()) {
             SectionTitle(stringResource(R.string.conversations))
@@ -122,7 +132,7 @@ fun ChatScreen(onSettings: () -> Unit, onFiles: () -> Unit, vm: ChatViewModel = 
         Column(Modifier.verticalScroll(rememberScrollState())) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) { Text(pending.name + " · " + pending.preview.path, fontWeight = FontWeight.SemiBold) }
             Text(stringResource(R.string.approval_detail), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 10.dp))
-            Text(stringResource(R.string.proposed_content), style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(if(pending.name.startsWith("mcp_")) R.string.external_args else R.string.proposed_content), style = MaterialTheme.typography.labelMedium)
             Text(pending.preview.after.take(12000), modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).background(MaterialTheme.colorScheme.surfaceVariant).padding(10.dp), fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 11.sp, softWrap = false)
         }
     }, confirmButton = { Button(onClick = { vm.agent.approve(true) }) { Text(stringResource(R.string.approve)) } }, dismissButton = { TextButton(onClick = { vm.agent.approve(false) }) { Text(stringResource(R.string.reject)) } })

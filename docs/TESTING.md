@@ -39,3 +39,12 @@ CI compilation and JVM tests do **not** substitute for this checklist:
 - [ ] Verify secrets are absent from logs, exported ZIPs, backup settings and remote URLs.
 
 Record device/OS, app commit, provider/model and reproduction steps for failures. Do not mark production readiness complete until device, security and release-signing work is done.
+
+
+## Phase 2 automated validation
+
+Ordinary CI runs app/core/terminal JVM tests, debug and minified release assembly, and Android lint. Live provider tests are skipped unless `-DliveProviders=true` is explicitly passed. MCP MockWebServer tests exercise initialize/session handling, tools discovery and JSON/SSE calls. Terminal tests cover parser chains, actual file effects, per-mutation checkpoints, concurrent tabs, history/cwd isolation, cancellation, quotas and path protection.
+
+To validate a cloud account, configure its key as a protected `provider-validation` environment secret and dispatch **Live provider validation** from main. Select one provider per run. For Ollama on a real phone use the in-app connection test; for public CI provide an HTTPS tunnel you control. Never expose an unauthenticated Ollama server directly to the internet. The workflow does not print keys or response content.
+
+The separately dispatched Device smoke validation workflow checks launch/settings and English → Persian → English switching. Hosted API 34 and API 29 attempts timed out before emulator boot; no device-test pass is claimed. Run this workflow on a compatible runner or run the instrumentation tests on a physical device. Android 34 device validation remains a release gate. It is not a full RTL, accessibility, provider-account or signed-release certification.

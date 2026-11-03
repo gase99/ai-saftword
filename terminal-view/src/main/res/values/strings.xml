@@ -1,0 +1,10 @@
+<resources>
+    <string name="terminal_welcome">AiCode Glass workspace shell 2.0\nSandboxed files and Git; not a Linux runtime. Type help.</string>
+    <string name="terminal_help_text">WORKSPACE SHELL\npwd · ls [-l,-a] · cd · cat · head/tail [-n N]\nmkdir [-p] · touch · cp [-r] · mv · rm [-r,-f]\necho · printf · grep [-i,-n] · find · tree · wc · tee [-a]\nhistory · clear · date · whoami · uname\nGit: status, branch, log, diff, init, add, reset, commit, switch\nQuotes, globs, |, &gt;, &gt;&gt;, 2&gt;, 2&gt;&amp;1, &amp;&amp;, ||, ;\nEvery mutating pipeline creates a checkpoint first.\nNo external processes, environment expansion, Python, npm or native builds. Use GitHub Actions for APK builds.</string>
+    <string name="terminal_unsupported">This command needs a Linux runtime, which is not bundled. No external process was executed.</string>
+    <string name="terminal_unknown">Unknown command: %1$s. Type help.</string>
+    <string name="terminal_cancelled">Command cancelled or timed out. This session is ready for another command.</string>
+    <string name="terminal_too_long">Command exceeds the 8 KB limit.</string>
+    <string name="terminal_stdout">Output</string><string name="terminal_stderr">Error</string><string name="terminal_input">Command</string>
+    <string name="history_previous">Previous command</string><string name="history_next">Next command</string>
+</resources>

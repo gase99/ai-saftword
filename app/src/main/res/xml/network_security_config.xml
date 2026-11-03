@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Android cannot express CIDR exceptions. All app HTTP entry points enforce EndpointPolicy:
+         remote HTTPS only; HTTP only for explicitly enabled literal loopback/private AI/MCP servers.
+         Git remotes independently require HTTPS. No WebView or arbitrary URL loader is exposed. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

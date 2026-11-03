@@ -4,7 +4,8 @@ The CI artifact is a debug build. This checklist is intentionally not marked com
 
 - [ ] Choose a license and document third-party notices.
 - [ ] Complete physical-device and accessibility acceptance tests.
-- [ ] Add Compose/Room instrumentation tests and an emulator CI smoke test.
+- [x] Add Compose launch/language-switch instrumentation and a manual emulator CI workflow.
+- [ ] Obtain a passing device smoke result (hosted emulator attempts timed out before boot).
 - [ ] Add real-provider contract tests using disposable test accounts and protected secrets.
 - [ ] Review all dependencies, Gradle wrapper checksum, action pinning and Android permissions.
 - [ ] Add release signing using protected GitHub environment secrets; never commit a keystore or password.

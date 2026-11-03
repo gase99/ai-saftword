@@ -38,6 +38,12 @@ Every push runs unit tests, Android lint, and a debug APK build. A failed run is
 
 No API key is bundled. Provider usage may incur charges. Model availability and API compatibility depend on your account/provider; model IDs are editable rather than hard-coded promises.
 
+## Phase 2
+
+Phase 2 adds HTTP MCP tool discovery with per-call approval, three parallel read-only analysts, encrypted multi-key rotation and opt-in fallback, Ollama, interactive multi-tab terminal sessions, localized terminal help, optional metadata audit export, reduced-motion glass effects, and protected tag-only signed APK/AAB releases.
+
+See [Phase 2 scope and validation](docs/PHASE2.md), [live-provider validation](docs/TESTING.md), and [production signing](docs/PRODUCTION_RELEASE.md). Mock protocol tests are not represented as live account validation. The terminal remains a safe local file/Git shell, not a Linux/PTY runtime.
+
 ## Architecture
 
 ```text
@@ -74,4 +80,4 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/TESTING.md](docs/TESTING
 
 ## Inspiration
 
-Inspired by the mobile workspace concepts in `hwsyyds666/Aicode-Glass`. This implementation is independent: no upstream source, assets, terminal binaries, or container rootfs were copied. Upstream's larger Linux/SSH/MCP feature set is not represented as implemented here.
+Inspired by the mobile workspace concepts in `hwsyyds666/Aicode-Glass`. This implementation is independent: no upstream source, assets, terminal binaries, or container rootfs were copied. Upstream's larger Linux/SSH feature set is not represented as implemented here; Phase 2 MCP is the documented HTTP subset.

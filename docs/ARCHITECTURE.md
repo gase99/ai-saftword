@@ -24,6 +24,6 @@ Restore first verifies every blob hash, materializes a staging tree, records a s
 
 ## Deliberate boundaries
 
-No arbitrary tool registry, external executable, SSH credential flow, MCP connection or autonomous Git mutation exists. Tool names are an allowlist, argument schemas are checked, paths stay inside the selected private workspace, and Ask mode removes write tools as well as enforcing the restriction at execution time.
+Phase 1 workspace tools remain an allowlist with checked schemas and private paths. Phase 2 adds explicitly configured HTTP MCP connections, but every external call still requires approval. No arbitrary executable, SSH credential flow or autonomous Git push is exposed. Ask mode removes write/external tools and enforces the restriction at execution time. See PHASE2.md for the current architecture.
 
 The shell implements a documented subset rather than pretending to be POSIX. It supports built-in commands, quotes, pipes and redirection; it rejects expansion and command separators. It is useful for local file workflows, not for running the projects it edits.
