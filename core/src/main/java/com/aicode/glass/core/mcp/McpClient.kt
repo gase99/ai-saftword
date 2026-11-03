@@ -81,8 +81,11 @@ class McpClient @Inject constructor(private val http: OkHttpClient) {
             if(body.contentLength() > 1024 * 1024) throw IOException("MCP response exceeds 1 MB")
             val source = body.source(); source.request(1024L * 1024 + 1); if(source.buffer.size > 1024 * 1024) throw IOException("MCP response exceeds 1 MB"); val text = source.readString(Charsets.UTF_8)
             val element = if(it.header("Content-Type")?.contains("text/event-stream") == true) {
-                text.lineSequence().filter { line -> line.startsWith("data:") }.map { line -> line.removePrefix("data:").trim() }.filter { it != "[DONE]" }
-                    .map { Json.parseToJsonElement(it) }.firstOrNull { obj -> obj.jsonObject["id"]?.jsonPrimitive?.contentOrNull == id.toString() } ?: throw IOException("MCP stream ended without the request response")
+                val events = mutableListOf<String>(); val data = StringBuilder()
+                fun flush() { if(data.isNotEmpty()) { events += data.toString(); data.clear() } }
+                text.lineSequence().forEach { line -> when { line.isEmpty() -> flush(); line.startsWith("data:") -> { if(data.isNotEmpty()) data.append('\n'); data.append(line.removePrefix("data:").trimStart()) } } }
+                flush()
+                events.filter { it != "[DONE]" }.map { Json.parseToJsonElement(it) }.firstOrNull { obj -> obj.jsonObject["id"]?.jsonPrimitive?.contentOrNull == id.toString() } ?: throw IOException("MCP stream ended without the request response")
             } else Json.parseToJsonElement(text)
             val obj = element.jsonObject
             obj["error"]?.let { error -> throw IOException("MCP error " + error.jsonObject["code"] + ": " + (error.jsonObject["message"]?.jsonPrimitive?.content ?: "request failed")) }
