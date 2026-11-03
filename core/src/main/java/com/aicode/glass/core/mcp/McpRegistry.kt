@@ -24,7 +24,7 @@ class McpRegistry @Inject constructor(private val client: McpClient, private val
         servers.first().filter { it.enabled }.take(4).forEach { server ->
             try { connections += client.connect(server, token(server.id)) }
             catch(e: kotlinx.coroutines.CancellationException) { throw e }
-            catch(e: Exception) { errors += server.name + ": " + (e.message ?: "connection failed").take(300).replace(Regex("Bearer\\s+\\S+"), "Bearer [redacted]") }
+            catch(e: Exception) { errors += server.name + ": " + (e.message ?: "connection failed").take(300).replace(token(server.id).ifBlank { "\u0000" }, "[redacted]").replace(Regex("Bearer\\s+\\S+"), "Bearer [redacted]") }
         }
         val result = McpState(connections, false, errors.joinToString("\n").ifBlank { null }, System.currentTimeMillis()); _state.value = result; result
     }

@@ -149,6 +149,9 @@ class GitRepository @Inject constructor(private val workspaces: WorkspaceReposit
 fun GitRepository.terminalCommand(root: java.io.File, args: List<String>, author: String = "AiCode Glass", email: String = "developer@localhost"): com.aicode.glass.terminal.CommandOutput {
     if (args.firstOrNull() == "init") { Git.init().setDirectory(root).setInitialBranch("main").call().close(); return com.aicode.glass.terminal.CommandOutput(stdout = "Initialized local Git repository") }
     if (!java.io.File(root, ".git").exists()) return com.aicode.glass.terminal.CommandOutput(stderr = "No Git repository. Initialize one in the Git tab.", exitCode = 1)
+    args.drop(1).filterNot { it.startsWith("-") }.forEach { path ->
+        if(args.firstOrNull() in setOf("add", "reset", "diff") && (path.startsWith("/") || path.split("/").contains(".."))) throw IllegalArgumentException("Git paths must stay inside the workspace")
+    }
     return Git.open(root).use { git -> com.aicode.glass.terminal.CommandOutput(stdout = when (args.firstOrNull()) {
         "status" -> "On branch ${git.repository.branch}\n" + git.status().call().let { status ->
             (status.added.map { "staged added: $it" } + status.changed.map { "staged modified: $it" } + status.modified.map { "modified: $it" } + status.untracked.map { "untracked: $it" } + status.missing.map { "missing: $it" }).joinToString("\n").ifBlank { "Working tree clean" }

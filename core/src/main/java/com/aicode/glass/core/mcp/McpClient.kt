@@ -50,7 +50,7 @@ class McpClient @Inject constructor(private val http: OkHttpClient) {
                 tools += McpTool(server.id, name, (obj["description"]?.jsonPrimitive?.content ?: name).take(1000), schema)
             }
             cursor = result["nextCursor"]?.jsonPrimitive?.contentOrNull
-        } while(cursor != null && tools.size < 64)
+        } while(cursor != null && tools.size <= 64)
         if(tools.size > 64) throw IOException("MCP server exposes too many tools (maximum 64).")
         if(tools.map { it.qualifiedName }.distinct().size != tools.size) throw IOException("MCP tool names collide after namespacing.")
         McpConnection(server, protocol, session, tools).also { it.requestIds.set(requestIds.get()) }
