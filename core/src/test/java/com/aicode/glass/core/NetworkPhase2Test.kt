@@ -37,7 +37,7 @@ data: [DONE]
     @Test fun neverReplaysMidstreamFailure() = runTest {
         val server = MockWebServer(); server.start()
         try {
-            server.enqueue(response("data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n").setSocketPolicy(SocketPolicy.DISCONNECT_AT_END))
+            server.enqueue(response("data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n").setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY))
             val seen = mutableListOf<AiEvent>()
             assertThrows(AiException::class.java) { kotlinx.coroutines.runBlocking { ResilientAiClient(StreamingAiClient(client())).stream(config().copy(endpoint = server.url("/v1").toString()), "secret123456", "sys", listOf(AiMessage("user", "hi")), emptyList()).toList(seen) } }
             assertEquals(1, server.requestCount); assertEquals(1, seen.filterIsInstance<AiEvent.Text>().size)

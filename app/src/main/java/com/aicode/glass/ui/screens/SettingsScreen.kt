@@ -30,7 +30,8 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     val gitToken by vm.gitTokenConfigured.collectAsStateWithLifecycle(); val notice by vm.notice.collectAsStateWithLifecycle(); val error by vm.error.collectAsStateWithLifecycle()
     val config = prefs.configs.getValue(prefs.provider)
     var model by rememberSaveable(prefs.provider) { mutableStateOf(config.model) }
-    var endpoint by rememberSaveable(prefs.provider) { mutableStateOf(config.endpoint) }
+    var endpoint by rememberSaveable(prefs.provider) { mutableStateOf(config.endpoint.ifBlank { config.provider.baseUrl }) }
+    var localHttp by rememberSaveable(prefs.provider) { mutableStateOf(config.allowLocalHttp) }
     var key by rememberSaveable(prefs.provider) { mutableStateOf("") }; var reveal by remember { mutableStateOf(false) }
     var author by rememberSaveable(prefs.authorName) { mutableStateOf(prefs.authorName) }
     var email by rememberSaveable(prefs.authorEmail) { mutableStateOf(prefs.authorEmail) }
@@ -52,17 +53,25 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
         SettingsGroup(stringResource(R.string.ai_provider)) {
             Text(stringResource(R.string.provider_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             ProviderType.entries.chunked(2).forEach { row -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { row.forEach { provider ->
-                FilterChip(selected = prefs.provider == provider, onClick = { vm.provider(provider) }, label = { Text(when(provider) { ProviderType.OPENAI -> "OpenAI"; ProviderType.ANTHROPIC -> "Anthropic"; ProviderType.GEMINI -> "Gemini"; ProviderType.CUSTOM -> stringResource(R.string.custom) }) }, leadingIcon = { if(configured[provider] == true) Icon(Icons.Outlined.CheckCircle, null, Modifier.size(15.dp)) }, modifier = Modifier.weight(1f))
+                FilterChip(selected = prefs.provider == provider, onClick = { vm.provider(provider) }, label = { Text(when(provider) { ProviderType.OPENAI -> "OpenAI"; ProviderType.ANTHROPIC -> "Anthropic"; ProviderType.GEMINI -> "Gemini"; ProviderType.CUSTOM -> stringResource(R.string.custom); ProviderType.OLLAMA -> "Ollama" }) }, leadingIcon = { if(configured[provider] == true) Icon(Icons.Outlined.CheckCircle, null, Modifier.size(15.dp)) }, modifier = Modifier.weight(1f))
             } } }
             OutlinedTextField(value = model, onValueChange = { model = it }, label = { Text(stringResource(R.string.model_id)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
-            if (prefs.provider == ProviderType.CUSTOM) OutlinedTextField(value = endpoint, onValueChange = { endpoint = it }, label = { Text(stringResource(R.string.base_url)) }, placeholder = { Text("https://your-provider.com/v1") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            if (prefs.provider == ProviderType.CUSTOM || prefs.provider == ProviderType.OLLAMA) OutlinedTextField(value = endpoint, onValueChange = { endpoint = it }, label = { Text(stringResource(R.string.base_url)) }, placeholder = { Text("https://your-provider.com/v1") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value = key, onValueChange = { key = it }, label = { Text(stringResource(if (configured[prefs.provider] == true) R.string.replace_key else R.string.api_key)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), visualTransformation = if (reveal) VisualTransformation.None else PasswordVisualTransformation(), trailingIcon = { IconButton(onClick = { reveal = !reveal }) { Icon(if (reveal) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, stringResource(R.string.toggle_key)) } }, shape = RoundedCornerShape(16.dp))
             Text(stringResource(if (configured[prefs.provider] == true) R.string.key_saved else R.string.key_missing), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { vm.saveProvider(ProviderConfig(prefs.provider, model, endpoint), key); key = ""; reveal = false }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.save_provider)) }
+                Button(onClick = { vm.saveProvider(ProviderConfig(prefs.provider, model, endpoint, localHttp), key); key = ""; reveal = false }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.save_provider)) }
                 if (configured[prefs.provider] == true) OutlinedButton(onClick = { removeKey = true }) { Icon(Icons.Outlined.DeleteOutline, stringResource(R.string.remove_key), Modifier.size(19.dp)) }
             }
+            if(prefs.provider == ProviderType.CUSTOM || prefs.provider == ProviderType.OLLAMA) ToggleRow(stringResource(R.string.local_http), localHttp) { localHttp = it }
             Text(stringResource(R.string.key_security), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        ConnectionSettings(vm)
+        McpSettings(vm)
+        SettingsGroup(stringResource(R.string.accessibility_privacy)) {
+            ToggleRow(stringResource(R.string.reduce_motion), prefs.reducedMotion, vm::reducedMotion)
+            ToggleRow(stringResource(R.string.terminal_audit), prefs.terminalLogging, vm::terminalLogging)
+            Text(stringResource(R.string.terminal_audit_detail), style = MaterialTheme.typography.bodySmall)
         }
         SettingsGroup(stringResource(R.string.git_identity)) {
             OutlinedTextField(value = author, onValueChange = { author = it }, label = { Text(stringResource(R.string.author_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -72,7 +81,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { vm.saveGit(author, email, token); token = "" }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.save_git)) }; if (gitToken) OutlinedButton(onClick = { removeToken = true }) { Icon(Icons.Outlined.DeleteOutline, stringResource(R.string.remove_token), Modifier.size(19.dp)) } }
         }
         SettingsGroup(stringResource(R.string.about_title)) {
-            Text("AiCode Glass · 1.0", style = MaterialTheme.typography.titleMedium)
+            Text("AiCode Glass · 2.0", style = MaterialTheme.typography.titleMedium)
             Text(stringResource(R.string.about_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(stringResource(R.string.capability_limits), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(stringResource(R.string.privacy_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

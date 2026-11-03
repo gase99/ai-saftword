@@ -1,6 +1,7 @@
 package com.aicode.glass.terminal
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.withLock
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test

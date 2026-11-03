@@ -43,10 +43,10 @@ class StreamingAiClient @Inject constructor(private val http: OkHttpClient) : Ai
             ProviderType.GEMINI -> builder.header("x-goog-api-key", key)
             else -> if (key.isNotBlank()) builder.header("Authorization", "Bearer $key")
         }
-        var finished = false; var received = false
+        var finished = false; var received = false; var semantic = false
         fun accept(data: String) {
-            if (data.trim() == "[DONE]") { if (!received) { channel.close(AiException("Provider closed an empty stream.")); return }; if (!finished) { codec.finish().forEach { trySendBlocking(it) }; finished = true }; close(); return }
-            codec.event(data).forEach { trySendBlocking(it) }
+            if (data.trim() == "[DONE]") { if (!semantic) { channel.close(AiException("Provider closed without text or tool calls.")); return }; if (!finished) { codec.finish().forEach { trySendBlocking(it) }; finished = true }; close(); return }
+            codec.event(data).forEach { if(it is AiEvent.Text || it is AiEvent.Call) semantic = true; trySendBlocking(it) }
         }
         val source = EventSources.createFactory(client).newEventSource(builder.build(), object : EventSourceListener() {
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
@@ -56,7 +56,7 @@ class StreamingAiClient @Inject constructor(private val http: OkHttpClient) : Ai
                 }
             }
             override fun onClosed(eventSource: EventSource) {
-                if (!received) { channel.close(AiException("Provider closed an empty stream.")); return }
+                if (!semantic) { channel.close(AiException("Provider closed without text or tool calls.")); return }
                 if (!finished) {
                     try { codec.finish().forEach { trySendBlocking(it) }; finished = true; close() }
                     catch (e: Exception) { channel.close(e) }

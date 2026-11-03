@@ -46,6 +46,7 @@ fun TerminalScreen(filesInitially: Boolean = false, vm: WorkspaceViewModel = hil
     val editor by vm.editor.collectAsStateWithLifecycle(); var discard by remember { mutableStateOf(false) }
     val busy by vm.busy.collectAsStateWithLifecycle(); val error by vm.error.collectAsStateWithLifecycle(); val notice by vm.notice.collectAsStateWithLifecycle()
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importZip) }
+    val auditLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-ndjson")) { uri -> uri?.let(vm::exportAudit) }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri -> uri?.let(vm::exportZip) }
     BackHandler(enabled = editor != null) { if (editor?.dirty == true) discard = true else vm.closeEditor() }
     Column(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
@@ -106,6 +107,7 @@ fun TerminalScreen(filesInitially: Boolean = false, vm: WorkspaceViewModel = hil
             Text("/$directory", modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
             IconButton(onClick = { create = true }, enabled = !busy) { Icon(Icons.Outlined.NoteAdd, stringResource(R.string.new_file)) }
             IconButton(onClick = vm::refresh) { Icon(Icons.Outlined.Refresh, stringResource(R.string.refresh)) }
+            IconButton(onClick = { auditLauncher.launch("terminal-audit.jsonl") }) { Icon(Icons.Outlined.ReceiptLong, stringResource(R.string.export_audit)) }
         }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (files.isEmpty()) item { EmptyState(Icons.Outlined.FolderOpen, stringResource(R.string.empty_folder), stringResource(R.string.empty_folder_detail), Modifier.fillMaxWidth()) }

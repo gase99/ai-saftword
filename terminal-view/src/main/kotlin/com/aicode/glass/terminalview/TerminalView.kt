@@ -19,7 +19,7 @@ import com.aicode.glass.terminal.TerminalLine
 
 @Composable
 fun TerminalView(lines: List<TerminalLine>, modifier: Modifier = Modifier, sessionId: String = "") {
-    val listState = rememberLazyListState(sessionId)
+    val listState = rememberLazyListState(sessionId.hashCode())
     val follow by remember { derivedStateOf { val last = listState.layoutInfo.visibleItemsInfo.lastOrNull(); last == null || last.index >= lines.lastIndex - 1 } }
     LaunchedEffect(lines.lastOrNull()?.id, sessionId) { if (lines.isNotEmpty() && follow) listState.scrollToItem(lines.lastIndex) }
     val horizontal = rememberScrollState(sessionId.hashCode())
