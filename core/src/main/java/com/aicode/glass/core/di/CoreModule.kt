@@ -21,7 +21,7 @@ object CoreModule {
     @Provides @Singleton fun http(): okhttp3.OkHttpClient = okhttp3.OkHttpClient.Builder()
         .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS).readTimeout(90, java.util.concurrent.TimeUnit.SECONDS)
         .callTimeout(240, java.util.concurrent.TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false)
-        .retryOnConnectionFailure(false).build()
+        .retryOnConnectionFailure(false).addInterceptor(com.aicode.glass.core.network.LocalHttpInterceptor()).build()
 }
 
 @Module

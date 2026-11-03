@@ -36,7 +36,7 @@ class StreamingAiClient @Inject constructor(private val http: OkHttpClient) : Ai
             ProviderType.GEMINI -> "$base/models/${config.model}:streamGenerateContent?alt=sse"
             else -> "$base/chat/completions"
         }
-        val builder = Request.Builder().url(url).post(codec.request(config, system, messages, tools).toRequestBody("application/json; charset=utf-8".toMediaType()))
+        val builder = Request.Builder().url(url).apply { if (config.allowLocalHttp) header("X-AiCode-Local-HTTP", "enabled") }.post(codec.request(config, system, messages, tools).toRequestBody("application/json; charset=utf-8".toMediaType()))
             .header("Accept", "text/event-stream").header("Content-Type", "application/json")
         when (config.provider) {
             ProviderType.ANTHROPIC -> builder.header("x-api-key", key).header("anthropic-version", "2023-06-01")

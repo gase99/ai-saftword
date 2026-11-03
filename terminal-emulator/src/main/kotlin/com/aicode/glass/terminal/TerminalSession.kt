@@ -45,7 +45,7 @@ class TerminalSession(val root: File, val name: String = "Terminal 1", val id: S
             withTimeout(20_000) {
                 var previous = 0; var previousConnector = ""
                 for (pipeline in parsed) {
-                    ensureActive()
+                    currentCoroutineContext().ensureActive()
                     if (!((previousConnector == "&&" && previous != 0) || (previousConnector == "||" && previous == 0))) previous = executePipeline(pipeline, host)
                     previousConnector = pipeline.next
                 }
@@ -62,7 +62,7 @@ class TerminalSession(val root: File, val name: String = "Terminal 1", val id: S
         if (ShellParser.isMutating(pipeline)) host.checkpoint(pipeline.commands.joinToString(" | ") { it.words.joinToString(" ") }.take(100))
         var stdout = ""; var stderr = ""; var status = 0
         for (command in pipeline.commands) {
-            ensureActive()
+            currentCoroutineContext().ensureActive()
             val result = if (command.words.first() == "git") host.git(command.words.drop(1)) else run(command.words, stdout)
             stdout = result.stdout; stderr = result.stderr; status = result.exitCode
             if (stderr.isNotBlank()) appendRaw(stderr.trimEnd('\n'), TerminalLine.Kind.ERROR)
