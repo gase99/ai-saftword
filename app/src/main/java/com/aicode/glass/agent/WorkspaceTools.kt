@@ -11,11 +11,12 @@ data class ToolResult(val content: String, val isError: Boolean = false, val che
 data class ToolPreview(val path: String, val before: String, val after: String)
 
 @Singleton
-class WorkspaceTools @Inject constructor(private val workspaces: WorkspaceRepository, private val checkpoints: CheckpointRepository, private val git: GitRepository) {
+class WorkspaceTools @Inject constructor(private val workspaces: WorkspaceRepository, private val checkpoints: CheckpointRepository, private val git: GitRepository, private val mcp: com.aicode.glass.core.mcp.McpRegistry, private val analysts: SubAgentCoordinator) {
     companion object {
-        val READ_ONLY = setOf("list_files", "read_file", "search_files", "git_status", "git_diff")
+        val READ_ONLY = setOf("list_files", "read_file", "search_files", "git_status", "git_diff", "analyze_parallel")
         val WRITES = setOf("write_file", "replace_text")
         val specs = listOf(
+            ToolSpec("analyze_parallel", "Run three read-only architecture, security and test specialists in parallel on a bounded workspace snapshot. No file writes or nested agents.", JsonTools.schema(mapOf("task" to "string"), listOf("task"))),
             ToolSpec("list_files", "List a local workspace directory. Paths are relative; Git metadata is excluded.", JsonTools.schema(mapOf("path" to "string"), emptyList())),
             ToolSpec("read_file", "Read a UTF-8 workspace file, up to 1 MB.", JsonTools.schema(mapOf("path" to "string"), listOf("path"))),
             ToolSpec("search_files", "Case-insensitive literal search across workspace text files; returns at most 80 matches.", JsonTools.schema(mapOf("query" to "string"), listOf("query"))),
@@ -26,6 +27,7 @@ class WorkspaceTools @Inject constructor(private val workspaces: WorkspaceReposi
         )
     }
     fun preview(workspaceId: String, call: ToolCall): ToolPreview {
+        if(call.name.startsWith("mcp_")) { val (_, tool) = mcp.find(call.name) ?: throw IllegalArgumentException("MCP tool is no longer connected."); com.aicode.glass.core.mcp.SchemaValidator.validate(tool.schema, JsonTools.parseArgs(call.arguments)); return ToolPreview(tool.serverId + " / " + tool.name, "", call.arguments) }
         val args = validatedArgs(call)
         val path = args.getValue("path").jsonPrimitive.content
         val root = workspaces.root(workspaceId)
@@ -51,12 +53,19 @@ class WorkspaceTools @Inject constructor(private val workspaces: WorkspaceReposi
         return args
     }
     suspend fun execute(workspaceId: String, call: ToolCall, mode: String, approved: Boolean): ToolResult {
+        if(call.name.startsWith("mcp_")) {
+            if(!approved || mode == "ask") return ToolResult("External MCP execution was not approved.", true)
+            val (connection, tool) = mcp.find(call.name) ?: return ToolResult("MCP tool is disconnected. Refresh in Settings.", true)
+            return try { val args = JsonTools.parseArgs(call.arguments); require(call.arguments.length <= 65536); com.aicode.glass.core.mcp.SchemaValidator.validate(tool.schema, args); val result = mcp.call(connection, tool.name, args, mcp.token(connection.server.id)); ToolResult(result.text, result.isError) }
+            catch(e: kotlinx.coroutines.CancellationException) { throw e } catch(e: Exception) { ToolResult((e.message ?: "MCP call failed").take(2000), true) }
+        }
         if (call.name !in READ_ONLY + WRITES) return ToolResult("Tool is not enabled.", true)
         if (call.name in WRITES && (mode == "ask" || !approved)) return ToolResult("Write denied: explicit approval is required outside Ask mode.", true)
         return try {
             val args = validatedArgs(call)
             fun path() = args.getValue("path").jsonPrimitive.content
             when (call.name) {
+                "analyze_parallel" -> ToolResult(analysts.analyze(args.getValue("task").jsonPrimitive.content.take(4000), workspaceId))
                 "list_files" -> ToolResult(workspaces.transaction(workspaceId) { root -> workspaces.list(root, args["path"]?.jsonPrimitive?.content ?: "").joinToString("\n") { "${if (it.directory) "dir " else "file"} ${it.path} (${it.size} bytes)" }.ifBlank { "Empty directory" } })
                 "read_file" -> ToolResult(workspaces.read(workspaceId, path()).content)
                 "search_files" -> {

@@ -26,5 +26,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+}
+
+tasks.withType<Test>().configureEach {
+    systemProperty("liveProviders", System.getProperty("liveProviders", "false"))
+    listOf("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "OLLAMA_ENDPOINT", "OLLAMA_MODEL").forEach { name -> System.getenv(name)?.let { environment(name, it) } }
 }

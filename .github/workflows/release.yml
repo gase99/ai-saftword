@@ -1,0 +1,95 @@
+name: Signed production release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'gase99/ai-saftword'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: production
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Verify tag is on main and derive version
+        shell: bash
+        run: |
+          [[ "$GITHUB_REF_NAME" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]] || { echo 'Use a stable vMAJOR.MINOR.PATCH tag'; exit 1; }
+          MAJOR=${BASH_REMATCH[1]}; MINOR=${BASH_REMATCH[2]}; PATCH=${BASH_REMATCH[3]}
+          (( MAJOR < 200 && MINOR < 1000 && PATCH < 1000 )) || exit 1
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo 'Release tags must point to a commit on main'; exit 1; }
+          echo "RELEASE_VERSION=$GITHUB_REF_NAME" | sed 's/=v/=/' >> "$GITHUB_ENV"
+          echo "RELEASE_CODE=$((MAJOR * 1000000 + MINOR * 1000 + PATCH))" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-34 build-tools;34.0.0 platform-tools'
+      - name: Verify protected signing configuration
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set +x
+          for value in "$KEYSTORE_BASE64" "$STORE_PASSWORD" "$ALIAS" "$KEY_PASSWORD"; do test -n "$value" || { echo 'Missing protected production signing secret'; exit 1; }; done
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          keytool -list -keystore "$RUNNER_TEMP/release.keystore" -storepass:env STORE_PASSWORD -alias "$ALIAS" > /dev/null
+          echo 'ANDROID_KEYSTORE_PATH<<EOF' >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          echo 'EOF' >> "$GITHUB_ENV"
+      - name: Test and build signed APK and AAB
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ORG_GRADLE_PROJECT_releaseVersionName: ${{ env.RELEASE_VERSION }}
+          ORG_GRADLE_PROJECT_releaseVersionCode: ${{ env.RELEASE_CODE }}
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :core:testDebugUnitTest :terminal-emulator:test :app:lintRelease :app:assembleRelease :app:bundleRelease
+      - name: Verify signatures and prepare checksums
+        run: |
+          APK=app/build/outputs/apk/release/app-release.apk
+          AAB=app/build/outputs/bundle/release/app-release.aab
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
+          jarsigner -verify "$AAB"
+          test -n "$(find app/build/outputs -name '*unsigned*' -print -quit)" && exit 1 || true
+          mkdir -p release-artifacts
+          cp "$APK" "release-artifacts/AiCode-Glass-$GITHUB_REF_NAME.apk"
+          cp "$AAB" "release-artifacts/AiCode-Glass-$GITHUB_REF_NAME.aab"
+          cp app/build/outputs/mapping/release/mapping.txt release-artifacts/mapping.txt
+          (cd release-artifacts && sha256sum * > SHA256SUMS.txt)
+      - name: Remove transient signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: AiCode-Glass-signed-${{ github.ref_name }}
+          path: release-artifacts/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release-artifacts/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "AiCode Glass $GITHUB_REF_NAME" --notes "Signed APK and Android App Bundle. Verify SHA256SUMS.txt before installation. See docs/PRODUCTION_RELEASE.md for signing, upgrade and validation requirements. Physical-device/provider acceptance is not implied by a successful build."

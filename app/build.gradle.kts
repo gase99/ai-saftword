@@ -12,8 +12,8 @@ android {
         applicationId = "com.aicode.glass"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = (project.findProperty("releaseVersionCode") as String?)?.toIntOrNull() ?: 2
+        versionName = (project.findProperty("releaseVersionName") as String?) ?: "2.0.0"
         resourceConfigurations += listOf("en", "fa")
     }
     buildFeatures { compose = true }
@@ -23,9 +23,22 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    signingConfigs {
+        create("release") {
+            val store = System.getenv("ANDROID_KEYSTORE_PATH")
+            if (!store.isNullOrBlank()) {
+                storeFile = file(store)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
+            if (System.getenv("ANDROID_KEYSTORE_PATH") != null) signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -60,5 +73,6 @@ dependencies {
     implementation("org.commonmark:commonmark:0.21.0")
     implementation("org.apache.commons:commons-compress:1.26.2")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 }

@@ -6,6 +6,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import com.aicode.glass.core.network.ProviderConfig
 import com.aicode.glass.core.network.ProviderType
+import kotlinx.coroutines.flow.first
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.builtins.ListSerializer
+import com.aicode.glass.core.mcp.McpServer
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -53,7 +57,11 @@ class SettingsRepository @Inject constructor(private val store: DataStore<Prefer
     }
     suspend fun setReducedMotion(value: Boolean) = store.edit { it[Keys.reducedMotion] = value }
     suspend fun setTerminalLogging(value: Boolean) = store.edit { it[Keys.terminalLogging] = value }
+    val mcpServers: Flow<List<McpServer>> = store.data.map { p -> runCatching { Json.decodeFromString(ListSerializer(McpServer.serializer()), p[Keys.mcp] ?: "[]") }.getOrDefault(emptyList()) }
+    suspend fun saveMcp(servers: List<McpServer>) { require(servers.size <= 4); store.edit { it[Keys.mcp] = Json.encodeToString(ListSerializer(McpServer.serializer()), servers) } }
+    suspend fun removeMcp(id: String) { val remaining = mcpServers.first().filterNot { it.id == id }; saveMcp(remaining) }
     private object Keys {
+        val mcp = stringPreferencesKey("mcp_servers_v2")
         val retries = intPreferencesKey("connection_retries"); val fallbacks = booleanPreferencesKey("allow_fallbacks")
         val fallbackProviders = stringSetPreferencesKey("fallback_providers_unused").let { stringPreferencesKey("fallback_providers") }
         val reducedMotion = booleanPreferencesKey("reduced_motion"); val terminalLogging = booleanPreferencesKey("terminal_logging")
