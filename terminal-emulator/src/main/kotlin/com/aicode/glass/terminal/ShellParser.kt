@@ -23,7 +23,8 @@ object ShellParser {
                 c == '\n' || c == '\r' -> { flush(); result += ShellToken(";", true) }
                 c.isWhitespace() -> flush()
                 c == '#' && !started -> return result.also { if (quote != null) throw IllegalArgumentException("Unclosed quote") }
-                c in listOf('|', '&', ';', '>') -> {
+ c in listOf('|', '&', ';', '>', '1', '2') -> {
+                    if((c == '1' || c == '2') && input.getOrNull(i + 1) != '>') { word.append(c); started = true; i++; continue }
                     flush(); val pair = input.substring(i, minOf(i + 2, input.length))
                     val op = when { pair in operators -> pair; c == '&' -> throw IllegalArgumentException("Background & is not supported"); c == '>' && input.getOrNull(i + 1) == '&' && input.getOrNull(i + 2) == '1' -> "2>&1"; else -> c.toString() }
                     result += ShellToken(op, true); i += op.length - 1
@@ -43,7 +44,7 @@ object ShellParser {
             pipelines += ShellPipeline(commands.toList(), next); commands = mutableListOf()
         }
         tokens.forEach label@{ token -> if(!token.operator) words += token.value else when(token.value) {
-            "|" -> { finishCommand(); require(commands.isNotEmpty()) { "Missing pipe input" } }
+            "|" -> { require(words.isNotEmpty()) { "Empty pipe stage" }; finishCommand() }
             "&&", "||", ";" -> { if(words.isEmpty() && commands.isEmpty() && token.value == ";") return@label; finishPipeline(token.value) }
             else -> words += token.value
         } }
