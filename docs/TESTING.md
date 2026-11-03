@@ -43,7 +43,7 @@ Record device/OS, app commit, provider/model and reproduction steps for failures
 
 ## Phase 2 automated validation
 
-Ordinary CI runs app/core/terminal JVM tests, debug and minified release assembly, and Android lint. Live provider tests are skipped unless `-DliveProviders=true` is explicitly passed. MCP MockWebServer tests exercise initialize/session handling, tools discovery and JSON/SSE calls. Terminal tests cover parser chains, actual file effects, per-mutation checkpoints, concurrent tabs, history/cwd isolation, cancellation, quotas and path protection.
+Ordinary CI runs app/core/terminal JVM tests, debug and minified release assembly, and Android lint. Live provider tests are skipped unless `-PliveProviders=true` (or `-DliveProviders=true`) is explicitly passed. MCP MockWebServer tests exercise initialize/session handling, tools discovery and JSON/SSE calls. Terminal tests cover parser chains, actual file effects, per-mutation checkpoints, concurrent tabs, history/cwd isolation, cancellation, quotas and path protection.
 
 To validate a cloud account, configure its key as a protected `provider-validation` environment secret and dispatch **Live provider validation** from main. Select one provider per run. For Ollama on a real phone use the in-app connection test; for public CI provide an HTTPS tunnel you control. Never expose an unauthenticated Ollama server directly to the internet. The workflow does not print keys or response content.
 
