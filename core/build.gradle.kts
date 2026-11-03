@@ -13,7 +13,7 @@ android {
     kotlinOptions { jvmTarget = "17" }
 }
 ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.schemaLocation", layout.buildDirectory.dir("generated/room-schemas").get().asFile.absolutePath)
     arg("room.generateKotlin", "true")
 }
 dependencies {
