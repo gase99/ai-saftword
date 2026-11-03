@@ -26,7 +26,7 @@ object ShellParser {
  c in listOf('|', '&', ';', '>', '1', '2') -> {
                     if((c == '1' || c == '2') && input.getOrNull(i + 1) != '>') { word.append(c); started = true; i++; continue }
                     flush(); val pair = input.substring(i, minOf(i + 2, input.length))
-                    val op = when { pair in operators -> pair; c == '&' -> throw IllegalArgumentException("Background & is not supported"); c == '>' && input.getOrNull(i + 1) == '&' && input.getOrNull(i + 2) == '1' -> "2>&1"; else -> c.toString() }
+                    val op = when { input.startsWith("2>&1", i) -> "2>&1"; pair in operators -> pair; c == '&' -> throw IllegalArgumentException("Background & is not supported"); c == '>' && input.getOrNull(i + 1) == '&' && input.getOrNull(i + 2) == '1' -> "2>&1"; else -> c.toString() }
                     result += ShellToken(op, true); i += op.length - 1
                 }
                 c in listOf('$', '`', '<') -> throw IllegalArgumentException("Host expansion, substitution and input redirection are not supported.")
