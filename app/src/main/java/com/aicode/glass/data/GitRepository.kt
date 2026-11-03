@@ -146,9 +146,10 @@ class GitRepository @Inject constructor(private val workspaces: WorkspaceReposit
 }
 
 /** Read-only terminal bridge. The caller already owns the workspace transaction. */
-fun GitRepository.terminalCommand(root: java.io.File, args: List<String>): String {
-    if (!java.io.File(root, ".git").exists()) return "No Git repository. Initialize one in the Git tab."
-    return Git.open(root).use { git -> when (args.firstOrNull()) {
+fun GitRepository.terminalCommand(root: java.io.File, args: List<String>, author: String = "AiCode Glass", email: String = "developer@localhost"): com.aicode.glass.terminal.CommandOutput {
+    if (args.firstOrNull() == "init") { Git.init().setDirectory(root).setInitialBranch("main").call().close(); return com.aicode.glass.terminal.CommandOutput(stdout = "Initialized local Git repository") }
+    if (!java.io.File(root, ".git").exists()) return com.aicode.glass.terminal.CommandOutput(stderr = "No Git repository. Initialize one in the Git tab.", exitCode = 1)
+    return Git.open(root).use { git -> com.aicode.glass.terminal.CommandOutput(stdout = when (args.firstOrNull()) {
         "status" -> "On branch ${git.repository.branch}\n" + git.status().call().let { status ->
             (status.added.map { "staged added: $it" } + status.changed.map { "staged modified: $it" } + status.modified.map { "modified: $it" } + status.untracked.map { "untracked: $it" } + status.missing.map { "missing: $it" }).joinToString("\n").ifBlank { "Working tree clean" }
         }
@@ -157,6 +158,11 @@ fun GitRepository.terminalCommand(root: java.io.File, args: List<String>): Strin
         "diff" -> {
             val out = ByteArrayOutputStream(); DiffFormatter(out).use { it.setRepository(git.repository); it.format(DirCacheIterator(git.repository.readDirCache()), FileTreeIterator(git.repository)) }; out.toString("UTF-8").take(24000).ifBlank { "No unstaged tracked changes." }
         }
-        else -> "Read-only terminal Git: status, branch, log, diff. Use the Git tab for mutations and remote operations."
-    } }
+        "init" -> { Git.init().setDirectory(root).setInitialBranch("main").call().close(); "Initialized local Git repository" }
+        "add" -> { require(args.size > 1) { "git add PATH" }; args.drop(1).forEach { git.add().addFilepattern(it).call() }; "Staged" }
+        "reset" -> { git.reset().apply { args.drop(1).forEach { addPath(it) } }.call(); "Unstaged" }
+        "commit" -> { val at = args.indexOf("-m"); require(at >= 0 && args.getOrNull(at + 1)?.isNotBlank() == true) { "git commit -m MESSAGE" }; val person = PersonIdent(author, email); git.commit().setMessage(args[at + 1]).setAuthor(person).setCommitter(person).call().name }
+        "checkout", "switch" -> { require(args.size == 2) { "git switch BRANCH" }; require(git.status().call().isClean) { "Commit changes before switching" }; git.checkout().setName(args[1]).call(); "Switched to ${args[1]}" }
+        else -> throw IllegalArgumentException("Supported Git: status, branch, log, diff, init, add, reset, commit, switch. Remote push/pull requires the Git tab.")
+    }) }
 }

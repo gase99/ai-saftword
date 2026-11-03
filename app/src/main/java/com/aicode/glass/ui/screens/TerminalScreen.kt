@@ -19,6 +19,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -62,23 +63,38 @@ fun TerminalScreen(filesInitially: Boolean = false, vm: WorkspaceViewModel = hil
     if (discard) ConfirmDialog(stringResource(R.string.discard_changes), stringResource(R.string.discard_detail), onConfirm = { vm.closeEditor(); discard = false }, onDismiss = { discard = false })
 }
 @Composable private fun TerminalPane(vm: WorkspaceViewModel) {
-    val session by vm.session.collectAsStateWithLifecycle(); val lines by session.lines.collectAsStateWithLifecycle(); val running by session.running.collectAsStateWithLifecycle()
-    var command by rememberSaveable { mutableStateOf("") }
-    Column(Modifier.fillMaxSize().padding(top = 14.dp)) {
-        Surface(color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .6f), shape = RoundedCornerShape(14.dp)) {
-            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Outlined.Info, null, Modifier.size(18.dp)); Spacer(Modifier.width(9.dp)); Text(stringResource(R.string.terminal_disclosure), style = MaterialTheme.typography.bodySmall) }
+    val session by vm.session.collectAsStateWithLifecycle(); val tabs by vm.sessions.collectAsStateWithLifecycle()
+    val lines by session.lines.collectAsStateWithLifecycle(); val running by session.running.collectAsStateWithLifecycle()
+    val history by session.history.collectAsStateWithLifecycle(); val exit by session.exitCode.collectAsStateWithLifecycle()
+    var command by rememberSaveable(session.id) { mutableStateOf("") }; var historyIndex by remember(session.id) { mutableIntStateOf(-1) }
+    fun submit() { if(command.isNotBlank() && !running) { vm.execute(command); command = ""; historyIndex = -1 } }
+    fun previous() { if(history.isNotEmpty()) { historyIndex = if(historyIndex < 0) history.lastIndex else (historyIndex - 1).coerceAtLeast(0); command = history[historyIndex] } }
+    fun next() { if(historyIndex >= 0) { historyIndex++; if(historyIndex > history.lastIndex) { historyIndex = -1; command = "" } else command = history[historyIndex] } }
+    Column(Modifier.fillMaxSize().padding(top = 10.dp)) {
+        Text(stringResource(R.string.terminal_disclosure), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            tabs.forEachIndexed { index, tab -> FilterChip(selected = tab.id == session.id, onClick = { vm.selectTerminal(tab.id) }, label = { Text(stringResource(R.string.terminal_tab, index + 1)) }, trailingIcon = { if(tabs.size > 1) IconButton(onClick = { vm.closeTerminal(tab.id) }, modifier = Modifier.size(24.dp)) { Icon(Icons.Outlined.Close, stringResource(R.string.close_terminal), Modifier.size(14.dp)) } }) }
+            IconButton(onClick = vm::addTerminal, enabled = tabs.size < 4) { Icon(Icons.Outlined.Add, stringResource(R.string.new_terminal)) }
         }
-        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("WORKSPACE SHELL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-            if (running) TextButton(onClick = vm::stopTerminal) { Text(stringResource(R.string.stop)) }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) { Text(if(running) "RUNNING" else "EXIT $exit", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f)) }
+            if(running) TextButton(onClick = vm::stopTerminal) { Text(stringResource(R.string.stop)) }
             IconButton(onClick = session::clear) { Icon(Icons.Outlined.DeleteSweep, stringResource(R.string.clear_terminal)) }
         }
-        GlassCard(Modifier.fillMaxWidth().weight(1f), RoundedCornerShape(18.dp)) { TerminalView(lines, Modifier.fillMaxSize()) }
-        Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(value = command, onValueChange = { command = it }, modifier = Modifier.weight(1f), singleLine = true, enabled = !running, placeholder = { Text("help", fontFamily = FontFamily.Monospace) }, textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 14.sp), shape = RoundedCornerShape(16.dp), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send), keyboardActions = KeyboardActions(onSend = { if (command.isNotBlank()) { vm.execute(command); command = "" } }), leadingIcon = { Text("$", Modifier.padding(start = 14.dp), color = MaterialTheme.colorScheme.primary) })
-            Spacer(Modifier.width(8.dp)); FilledIconButton(enabled = !running && command.isNotBlank(), onClick = { vm.execute(command); command = "" }) { Icon(Icons.AutoMirrored.Outlined.Send, stringResource(R.string.run_command)) }
+        GlassCard(Modifier.fillMaxWidth().weight(1f), RoundedCornerShape(18.dp)) { TerminalView(lines, Modifier.fillMaxSize(), session.id) }
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(value = command, onValueChange = { command = it; historyIndex = -1 }, modifier = Modifier.weight(1f).onPreviewKeyEvent {
+                    if(it.type == KeyEventType.KeyDown) when(it.key) { Key.DirectionUp -> { previous(); true }; Key.DirectionDown -> { next(); true }; else -> false } else false
+                }, singleLine = true, placeholder = { Text("help", fontFamily = FontFamily.Monospace) }, textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 14.sp), shape = RoundedCornerShape(16.dp), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send), keyboardActions = KeyboardActions(onSend = { submit() }), leadingIcon = { Text("$", Modifier.padding(start = 12.dp), color = MaterialTheme.colorScheme.primary) })
+                Spacer(Modifier.width(8.dp)); FilledIconButton(enabled = !running && command.isNotBlank(), onClick = { submit() }) { Icon(Icons.AutoMirrored.Outlined.Send, stringResource(R.string.run_command)) }
+            }
         }
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("help", "ls -la", "git status", "find .").forEach { AssistChip(onClick = { command = it }, label = { Text(it, fontFamily = FontFamily.Monospace, fontSize = 11.sp) }) } }
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            IconButton(onClick = { previous() }, enabled = history.isNotEmpty()) { Icon(Icons.Outlined.KeyboardArrowUp, stringResource(R.string.history_previous)) }
+            IconButton(onClick = { next() }, enabled = historyIndex >= 0) { Icon(Icons.Outlined.KeyboardArrowDown, stringResource(R.string.history_next)) }
+            listOf("help", "ls -la", "git status", "find .").forEach { AssistChip(onClick = { command = it }, label = { Text(it, fontFamily = FontFamily.Monospace, fontSize = 11.sp) }) }
+        }
     }
 }
 @Composable private fun FilesPane(vm: WorkspaceViewModel, import: () -> Unit, export: () -> Unit) {

@@ -156,4 +156,9 @@ create today?</string>
     <string name="workspaces_detail">Each workspace has separate files, conversations, checkpoints, and Git history. Stop AI before switching.</string>
     <string name="you">You</string>
     <string name="appearance">Appearance</string>
+    <string name="terminal_tab">Terminal %1$d</string>
+    <string name="new_terminal">New terminal tab</string>
+    <string name="close_terminal">Close terminal tab</string>
+    <string name="history_previous">Previous command</string>
+    <string name="history_next">Next command</string>
 </resources>

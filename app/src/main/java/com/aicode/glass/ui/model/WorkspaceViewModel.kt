@@ -8,6 +8,7 @@ import com.aicode.glass.core.data.SettingsRepository
 import com.aicode.glass.data.*
 import com.aicode.glass.data.terminalCommand
 import com.aicode.glass.terminal.TerminalSession
+import com.aicode.glass.terminal.CommandOutput
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
@@ -20,10 +21,13 @@ data class EditorState(val path: String = "", val content: String = "", val orig
 @HiltViewModel
 class WorkspaceViewModel @Inject constructor(
     @ApplicationContext private val context: Context, val settings: SettingsRepository,
-    val workspaces: WorkspaceRepository, val checkpoints: CheckpointRepository, private val git: GitRepository, val agent: com.aicode.glass.agent.AgentCoordinator
+    val workspaces: WorkspaceRepository, val checkpoints: CheckpointRepository, private val git: GitRepository, private val audit: TerminalAudit, val agent: com.aicode.glass.agent.AgentCoordinator
 ) : ViewModel() {
     val workspaceId = settings.preferences.map { it.activeWorkspace }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, "default")
-    private val _session = MutableStateFlow(TerminalSession(workspaces.root("default"))); val session = _session.asStateFlow()
+    private val _sessions = MutableStateFlow(listOf(TerminalSession(workspaces.root("default")))); val sessions = _sessions.asStateFlow()
+    private val _activeSession = MutableStateFlow(_sessions.value.first().id); val activeSession = _activeSession.asStateFlow()
+    val session = combine(sessions, activeSession) { tabs, id -> tabs.find { it.id == id } ?: tabs.first() }.stateIn(viewModelScope, SharingStarted.Eagerly, _sessions.value.first())
+    private val terminalJobs = mutableMapOf<String, Job>()
     private val _directory = MutableStateFlow(""); val directory = _directory.asStateFlow()
     private val _files = MutableStateFlow<List<FileItem>>(emptyList()); val files = _files.asStateFlow()
     private val _editor = MutableStateFlow<EditorState?>(null); val editor = _editor.asStateFlow()
@@ -32,9 +36,10 @@ class WorkspaceViewModel @Inject constructor(
     private val _notice = MutableStateFlow<String?>(null); val notice = _notice.asStateFlow()
     @OptIn(ExperimentalCoroutinesApi::class)
     val snapshots = workspaceId.flatMapLatest { checkpoints.observe(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    private var terminalJob: Job? = null
     init { viewModelScope.launch { workspaceId.collect { id ->
-        _session.value = TerminalSession(workspaces.root(id)); _directory.value = ""; _editor.value = null; refresh()
+        terminalJobs.values.forEach { it.cancel() }; terminalJobs.clear()
+        val first = TerminalSession(workspaces.root(id)); _sessions.value = listOf(first); _activeSession.value = first.id
+        _directory.value = ""; _editor.value = null; refresh()
     } } }
     fun dismissError() { _error.value = null }
     fun dismissNotice() { _notice.value = null }
@@ -66,16 +71,37 @@ class WorkspaceViewModel @Inject constructor(
         if (agent.state.value.busy) { _error.value = "Stop the active AI turn before restoring."; return }
         viewModelScope.launch { _busy.value = true; try { checkpoints.restore(id); _editor.value = null; refresh(); _notice.value = "Workspace restored. Chat and Git history were preserved." } catch(e: Exception) { _error.value = e.message } finally { _busy.value = false } }
     }
-    fun execute(command: String) {
-        if (terminalJob?.isActive == true) return
-        if (command == "clear") { _session.value.clear(); return }
-        val id = workspaceId.value; val current = _session.value
-        terminalJob = viewModelScope.launch { try {
-            workspaces.transaction(id) { root -> current.execute(command, beforeMutation = { label -> checkpoints.captureLocked(root, id, "Terminal · " + label); Unit }, git = { args -> withContext(Dispatchers.IO) { git.terminalCommand(root, args) } }) }
-            refresh()
-        } catch(e: CancellationException) { /* cooperative cancellation */ } catch(e: Exception) { _error.value = e.message } }
+    fun selectTerminal(id: String) { if (_sessions.value.any { it.id == id }) _activeSession.value = id }
+    fun addTerminal() {
+        val current = _sessions.value; if (current.size >= 4) return
+        val next = TerminalSession(workspaces.root(workspaceId.value), "Terminal " + (current.size + 1))
+        _sessions.value = current + next; _activeSession.value = next.id
     }
-    fun stopTerminal() { terminalJob?.cancel() }
+    fun closeTerminal(id: String) {
+        if (_sessions.value.size <= 1) return
+        terminalJobs.remove(id)?.cancel(); _sessions.update { it.filterNot { tab -> tab.id == id } }
+        if (_activeSession.value == id) _activeSession.value = _sessions.value.first().id
+    }
+    fun execute(command: String) {
+        val current = session.value; if (terminalJobs[current.id]?.isActive == true) return
+        if (command.trim() == "clear") { current.clear(); return }
+        val id = workspaceId.value
+        terminalJobs[current.id] = viewModelScope.launch {
+            val start = System.currentTimeMillis(); val prefs = settings.preferences.first()
+            try {
+                workspaces.transaction(id) { root -> current.execute(command, object : com.aicode.glass.terminal.TerminalHost {
+                    override suspend fun checkpoint(label: String) { checkpoints.captureLocked(root, id, "Terminal · " + label) }
+                    override suspend fun git(args: List<String>) = withContext(Dispatchers.IO) { git.terminalCommand(root, args, prefs.authorName, prefs.authorEmail) }
+                }) }
+                if (prefs.terminalLogging) audit.record(id, current.id, command.trim().substringBefore(' '), current.exitCode.value, System.currentTimeMillis() - start)
+                refresh()
+            } catch (e: CancellationException) { /* Session cancellation is isolated. */ }
+            catch (e: Exception) { _error.value = e.message }
+            finally { terminalJobs.remove(current.id) }
+        }
+    }
+    fun stopTerminal() { val current = session.value; current.cancel(); terminalJobs[current.id]?.cancel() }
+    fun exportAudit(uri: Uri) { viewModelScope.launch { try { val text = audit.read(workspaceId.value); context.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }; _notice.value = "Terminal audit exported" } catch(e: Exception) { _error.value = e.message } } }
     fun importZip(uri: Uri) {
         if (agent.state.value.busy) return
         viewModelScope.launch { _busy.value = true; try {

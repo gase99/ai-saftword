@@ -1,0 +1,10 @@
+<resources>
+    <string name="terminal_welcome">پوسته محیط کار ای‌کد گلس ۲٫۰\nفایل‌ها و گیت در محیط امن؛ نه محیط اجرای لینوکس. راهنما: help</string>
+    <string name="terminal_help_text">پوسته محیط کار\npwd · ls [-l,-a] · cd · cat · head/tail [-n N]\nmkdir [-p] · touch · cp [-r] · mv · rm [-r,-f]\necho · printf · grep [-i,-n] · find · tree · wc · tee [-a]\nhistory · clear · date · whoami · uname\nگیت: status، branch، log، diff، init، add، reset، commit، switch\nنقل‌قول، الگوی فایل، |، &gt;، &gt;&gt;، 2&gt;، 2&gt;&amp;1، &amp;&amp;، ||، ;\nپیش از هر زنجیره تغییردهنده، نقطه بازیابی ساخته می‌شود.\nفرایند خارجی، بسط متغیر محیط، پایتون، npm و ساخت بومی وجود ندارد. برای ساخت APK از گیت‌هاب اکشنز استفاده کنید.</string>
+    <string name="terminal_unsupported">این دستور به محیط اجرای لینوکس نیاز دارد که همراه برنامه نیست. هیچ فرایند خارجی اجرا نشد.</string>
+    <string name="terminal_unknown">دستور ناشناخته: %1$s. دستور help را اجرا کنید.</string>
+    <string name="terminal_cancelled">دستور لغو شد یا زمان آن پایان یافت. این نشست برای دستور بعدی آماده است.</string>
+    <string name="terminal_too_long">دستور از محدودیت ۸ کیلوبایت بیشتر است.</string>
+    <string name="terminal_stdout">خروجی</string><string name="terminal_stderr">خطا</string><string name="terminal_input">دستور</string>
+    <string name="history_previous">دستور قبلی</string><string name="history_next">دستور بعدی</string>
+</resources>

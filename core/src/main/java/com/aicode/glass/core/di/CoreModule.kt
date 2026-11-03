@@ -18,6 +18,10 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 object CoreModule {
     @Provides @Singleton
     fun preferences(@ApplicationContext context: Context): DataStore<Preferences> = context.dataStore
+    @Provides @Singleton fun http(): okhttp3.OkHttpClient = okhttp3.OkHttpClient.Builder()
+        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS).readTimeout(90, java.util.concurrent.TimeUnit.SECONDS)
+        .callTimeout(240, java.util.concurrent.TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false)
+        .retryOnConnectionFailure(false).build()
 }
 
 @Module
@@ -34,5 +38,5 @@ object DatabaseModule {
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class NetworkModule {
-    @Binds @Singleton abstract fun ai(client: com.aicode.glass.core.network.StreamingAiClient): com.aicode.glass.core.network.AiClient
+    @Binds @Singleton abstract fun ai(client: com.aicode.glass.core.network.ResilientAiClient): com.aicode.glass.core.network.AiClient
 }

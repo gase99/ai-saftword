@@ -156,4 +156,9 @@
     <string name="workspaces_detail">هر محیط فایل‌ها، گفتگوها، نقاط بازیابی و تاریخچه گیت جدا دارد. پیش از جابه‌جایی هوش مصنوعی را متوقف کنید.</string>
     <string name="you">شما</string>
     <string name="appearance">ظاهر برنامه</string>
+    <string name="terminal_tab">ترمینال %1$d</string>
+    <string name="new_terminal">نشست جدید ترمینال</string>
+    <string name="close_terminal">بستن نشست ترمینال</string>
+    <string name="history_previous">دستور قبلی</string>
+    <string name="history_next">دستور بعدی</string>
 </resources>

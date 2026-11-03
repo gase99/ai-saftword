@@ -14,6 +14,8 @@ data class AppPreferences(
     val activeWorkspace: String = "default", val activeConversation: Long = 0L,
     val provider: ProviderType = ProviderType.OPENAI, val agentMode: String = "build",
     val authorName: String = "AiCode Glass", val authorEmail: String = "developer@localhost", val gitRemote: String = "",
+    val connectionRetries: Int = 2, val allowFallbacks: Boolean = false,
+    val fallbackProviders: Set<ProviderType> = emptySet(), val reducedMotion: Boolean = false, val terminalLogging: Boolean = false,
     val configs: Map<ProviderType, ProviderConfig> = ProviderType.entries.associateWith { ProviderConfig(it, it.defaultModel) }
 ) { val darkTheme: Boolean get() = theme != "light" }
 
@@ -22,11 +24,13 @@ class SettingsRepository @Inject constructor(private val store: DataStore<Prefer
     val preferences: Flow<AppPreferences> = store.data.map { p ->
         val configs = ProviderType.entries.associateWith { provider -> ProviderConfig(provider,
             p[stringPreferencesKey("model_${provider.name}")] ?: provider.defaultModel,
-            p[stringPreferencesKey("endpoint_${provider.name}")] ?: "") }
+            p[stringPreferencesKey("endpoint_${provider.name}")] ?: "", p[booleanPreferencesKey("local_http_${provider.name}")] ?: false) }
         AppPreferences(language = p[Keys.language] ?: "en", theme = p[Keys.theme] ?: "dark",
             activeWorkspace = p[Keys.workspace] ?: "default", activeConversation = p[Keys.conversation] ?: 0L,
             provider = runCatching { ProviderType.valueOf(p[Keys.provider] ?: "OPENAI") }.getOrDefault(ProviderType.OPENAI),
-            agentMode = p[Keys.mode] ?: "build", authorName = p[Keys.authorName] ?: "AiCode Glass",
+            agentMode = p[Keys.mode] ?: "build", connectionRetries = p[Keys.retries] ?: 2, allowFallbacks = p[Keys.fallbacks] ?: false,
+            fallbackProviders = (p[Keys.fallbackProviders] ?: "").split(",").mapNotNull { runCatching { ProviderType.valueOf(it) }.getOrNull() }.toSet(),
+            reducedMotion = p[Keys.reducedMotion] ?: false, terminalLogging = p[Keys.terminalLogging] ?: false, authorName = p[Keys.authorName] ?: "AiCode Glass",
             authorEmail = p[Keys.authorEmail] ?: "developer@localhost", gitRemote = p[Keys.remote] ?: "", configs = configs)
     }
     suspend fun setLanguage(value: String) = store.edit { it[Keys.language] = if (value == "fa") "fa" else "en" }
@@ -38,11 +42,21 @@ class SettingsRepository @Inject constructor(private val store: DataStore<Prefer
     suspend fun setProviderConfig(config: ProviderConfig) = store.edit {
         it[stringPreferencesKey("model_${config.provider.name}")] = config.model.trim()
         it[stringPreferencesKey("endpoint_${config.provider.name}")] = config.endpoint.trim()
+        it[booleanPreferencesKey("local_http_${config.provider.name}")] = config.allowLocalHttp
     }
     suspend fun setGitIdentity(name: String, email: String, remote: String) = store.edit {
         it[Keys.authorName] = name; it[Keys.authorEmail] = email; it[Keys.remote] = remote
     }
+    suspend fun setConnection(retries: Int, fallbacks: Boolean, providers: Set<ProviderType>) = store.edit {
+        it[Keys.retries] = retries.coerceIn(0, 3); it[Keys.fallbacks] = fallbacks
+        it[Keys.fallbackProviders] = providers.joinToString(",") { name -> name.name }
+    }
+    suspend fun setReducedMotion(value: Boolean) = store.edit { it[Keys.reducedMotion] = value }
+    suspend fun setTerminalLogging(value: Boolean) = store.edit { it[Keys.terminalLogging] = value }
     private object Keys {
+        val retries = intPreferencesKey("connection_retries"); val fallbacks = booleanPreferencesKey("allow_fallbacks")
+        val fallbackProviders = stringSetPreferencesKey("fallback_providers_unused").let { stringPreferencesKey("fallback_providers") }
+        val reducedMotion = booleanPreferencesKey("reduced_motion"); val terminalLogging = booleanPreferencesKey("terminal_logging")
         val language = stringPreferencesKey("language"); val theme = stringPreferencesKey("theme")
         val workspace = stringPreferencesKey("workspace"); val conversation = longPreferencesKey("conversation")
         val provider = stringPreferencesKey("provider"); val mode = stringPreferencesKey("agent_mode")

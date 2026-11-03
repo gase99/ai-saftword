@@ -10,6 +10,7 @@ android {
 }
 dependencies {
     implementation(project(":terminal-emulator"))
+    implementation("androidx.compose.material:material-icons-extended")
     implementation(platform("androidx.compose:compose-bom:2024.02.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
