@@ -12,10 +12,9 @@ android {
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
 }
-// Only one processor exports the schema. Concurrent debug/release exports race on the same v1 file.
-if (providers.gradleProperty("exportRoomSchema").isPresent) {
-    ksp { arg("room.schemaLocation", layout.buildDirectory.dir("generated/room-schemas").get().asFile.absolutePath) }
-}
+// Debug/release processors must not read and rewrite the same schema file concurrently.
+// The schema-export job disables Gradle parallelism and supplies this property explicitly.
+ksp { arg("room.schemaLocation", layout.buildDirectory.dir("generated/room-schemas").get().asFile.absolutePath) }
 dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     api("androidx.datastore:datastore-preferences:1.0.0")

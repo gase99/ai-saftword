@@ -66,7 +66,7 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ORG_GRADLE_PROJECT_releaseVersionName: ${{ env.RELEASE_VERSION }}
           ORG_GRADLE_PROJECT_releaseVersionCode: ${{ env.RELEASE_CODE }}
-        run: ./gradlew --no-daemon -PexportRoomSchema :app:testDebugUnitTest :core:testDebugUnitTest :terminal-emulator:test :app:lintRelease :app:assembleRelease :app:bundleRelease
+        run: ./gradlew --no-daemon --no-parallel -PexportRoomSchema :app:testDebugUnitTest :core:testDebugUnitTest :terminal-emulator:test :app:lintRelease :app:assembleRelease :app:bundleRelease
       - name: Verify signatures and prepare checksums
         run: |
           APK=app/build/outputs/apk/release/app-release.apk
