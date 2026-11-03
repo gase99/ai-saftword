@@ -32,7 +32,30 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 }
 
+// Environment variables consumed by LiveProviderTest. Every credential/model/endpoint override
+// must be listed here or the Gradle test JVM will not see it (this is why OLLAMA_API_KEY used to
+// vanish even when the workflow exported it).
+val liveProviderEnvironment = listOf(
+    "OPENAI_API_KEY", "OPENAI_MODEL", "OPENAI_ENDPOINT",
+    "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "ANTHROPIC_ENDPOINT",
+    "GEMINI_API_KEY", "GEMINI_MODEL", "GEMINI_ENDPOINT",
+    "OLLAMA_API_KEY", "OLLAMA_MODEL", "OLLAMA_ENDPOINT",
+    "AICODE_DEBUG_HTTP"
+)
+
 tasks.withType<Test>().configureEach {
-    systemProperty("liveProviders", System.getProperty("liveProviders", "false"))
-    listOf("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "OLLAMA_ENDPOINT", "OLLAMA_MODEL").forEach { name -> System.getenv(name)?.let { environment(name, it) } }
+    // Accept -PliveProviders=true, -DliveProviders=true or ORG_GRADLE_PROJECT_liveProviders=true.
+    val liveEnabled = (findProperty("liveProviders") ?: System.getProperty("liveProviders"))
+        ?.toString()?.toBoolean() ?: false
+    systemProperty("liveProviders", liveEnabled.toString())
+    liveProviderEnvironment.forEach { name -> System.getenv(name)?.let { environment(name, it) } }
+    // Provider failures must be readable in the CI log, not buried in an HTML report.
+    testLogging {
+        events("started", "passed", "skipped", "failed", "standardOut", "standardErr")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+        showStandardStreams = true
+    }
 }

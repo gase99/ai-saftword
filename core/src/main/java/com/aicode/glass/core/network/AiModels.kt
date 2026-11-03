@@ -5,7 +5,10 @@ import kotlinx.serialization.json.*
 enum class ProviderType(val baseUrl: String, val defaultModel: String) {
     OPENAI("https://api.openai.com/v1", "gpt-4o-mini"),
     ANTHROPIC("https://api.anthropic.com/v1", "claude-sonnet-4-20250514"),
-    GEMINI("https://generativelanguage.googleapis.com/v1beta", "gemini-2.5-flash"),
+    // Gemini 2.5 Flash is deprecated for new projects (retired on the Agent Platform on
+    // 2026-10-20 and restricted on the Developer API). gemini-3.5-flash is the current stable
+    // Flash model, served by the same v1beta generateContent/streamGenerateContent methods.
+    GEMINI("https://generativelanguage.googleapis.com/v1beta", "gemini-3.5-flash"),
     CUSTOM("https://api.openai.com/v1", "gpt-4o-mini"),
     OLLAMA("http://10.0.2.2:11434/v1", "llama3.2")
 }
