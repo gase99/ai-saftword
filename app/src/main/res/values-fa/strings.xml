@@ -21,7 +21,7 @@
     <string name="branches">شاخه‌ها</string>
     <string name="build_mode">ساخت · تأیید نوشتن</string>
     <string name="cancel">لغو</string>
-    <string name="capability_limits">این نسخه لینوکس، SSH، سرویس اجرای پس‌زمینه، MCP و ارسال خودکار گیت ندارد. درخواست‌های عامل تا زمانی که فرایند برنامه زنده است اجرا می‌شوند. برنامه را هنگام پاسخ‌های طولانی باز نگه دارید.</string>
+    <string name="capability_limits">فاز دوم ابزارهای HTTP MCP با تأیید و تحلیل موازی وابسته به فرایند برنامه را دارد. لینوکس/SSH، برنامه اجرایی stdio، اجرای پایدار پس‌زمینه و ارسال خودکار گیت وجود ندارد. هنگام کارهای طولانی برنامه را باز نگه دارید.</string>
     <string name="changed_files">%1$d فایل تغییریافته</string>
     <string name="changes">تغییرات</string>
     <string name="chat_placeholder">بپرسید، بسازید، کاوش کنید…</string>

@@ -80,4 +80,4 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/TESTING.md](docs/TESTING
 
 ## Inspiration
 
-Inspired by the mobile workspace concepts in `hwsyyds666/Aicode-Glass`. This implementation is independent: no upstream source, assets, terminal binaries, or container rootfs were copied. Upstream's larger Linux/SSH/MCP feature set is not represented as implemented here.
+Inspired by the mobile workspace concepts in `hwsyyds666/Aicode-Glass`. This implementation is independent: no upstream source, assets, terminal binaries, or container rootfs were copied. Upstream's larger Linux/SSH feature set is not represented as implemented here; Phase 2 MCP is the documented HTTP subset.

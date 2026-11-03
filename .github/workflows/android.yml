@@ -143,7 +143,21 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: ./gradlew --no-daemon :app:connectedDebugAndroidTest
+          emulator-options: -no-snapshot -gpu swiftshader_indirect -noaudio -no-boot-anim
+          emulator-boot-timeout: 600
+          script: bash -c 'set -o pipefail; ./gradlew --no-daemon --stacktrace :app:connectedDebugAndroidTest 2>&1 | tee /tmp/emulator-test.log'
+      - name: Publish emulator diagnostics
+        if: failure()
+        shell: python
+        run: |
+          import pathlib, xml.etree.ElementTree as ET
+          p=pathlib.Path('/tmp/emulator-test.log')
+          text='\n'.join(p.read_text(errors='replace').splitlines()[-70:]) if p.exists() else 'Emulator did not start.'
+          for report in pathlib.Path('app/build/outputs/androidTest-results').glob('**/*.xml'):
+              for case in ET.parse(report).getroot().iter('testcase'):
+                  for failure in case.findall('failure'):
+                      text += '\n' + case.attrib.get('name','test') + '\n' + (failure.text or '')[:5000]
+          print('::error title=Emulator smoke::' + text[-13000:].replace('%','%25').replace('\r','%0D').replace('\n','%0A'))
       - uses: actions/upload-artifact@v5
         if: always()
         with:

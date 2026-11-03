@@ -21,7 +21,7 @@
     <string name="branches">Branches</string>
     <string name="build_mode">Build · approve writes</string>
     <string name="cancel">Cancel</string>
-    <string name="capability_limits">This version does not include Linux, SSH, a background execution service, MCP, or autonomous Git pushes. Agent requests run while the app process is alive. Keep the app open during long replies.</string>
+    <string name="capability_limits">Phase 2 supports approved HTTP MCP tools and process-local parallel analysis. Linux/SSH, desktop stdio executables, durable foreground execution and autonomous Git pushes are not included. Keep the app open during long tasks.</string>
     <string name="changed_files">%1$d changed files</string>
     <string name="changes">Changes</string>
     <string name="chat_placeholder">Ask, build, explore…</string>
