@@ -36,7 +36,7 @@ object ShellParser {
         require(quote == null) { "Unclosed quote" }; flush(); return result
     }
     fun parse(input: String): List<ShellPipeline> {
-        val tokens = tokenize(input); val pipelines = mutableListOf<ShellPipeline>(); var commands = mutableListOf<ShellCommand>; var words = mutableListOf<String>(); var connector = ""
+        val tokens = tokenize(input); val pipelines = mutableListOf<ShellPipeline>(); var commands = mutableListOf<ShellCommand>(); var words = mutableListOf<String>(); var connector = ""
         fun finishCommand() { if(words.isNotEmpty()) { commands += ShellCommand(words.toList()); words = mutableListOf() } }
         fun finishPipeline(next: String) {
             finishCommand(); require(commands.isNotEmpty()) { "Empty pipeline" }
