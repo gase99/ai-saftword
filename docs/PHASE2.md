@@ -38,7 +38,7 @@ Optional audit logging stores only the last 500 command names, session IDs, time
 
 Branch CI compiles both debug and R8-minified release. Tag-only `v*` release automation requires a protected production environment and signing secrets, builds signed APK/AAB, verifies signatures, publishes checksums and preserves the R8 mapping. See `PRODUCTION_RELEASE.md`.
 
-Glass surfaces retain API-level-aware blur, add slow gradient-orb motion and honor a reduced-motion preference. Layout direction is supplied explicitly at the app root, with LTR scoped to code/terminal content. English/Persian resource parity is checked. CI includes an Android 34 launch/settings/language-switch smoke test after successful push builds. RTL/device typography, TalkBack and font-scale acceptance still require the physical-device checklist.
+Glass surfaces retain API-level-aware blur, add slow gradient-orb motion and honor a reduced-motion preference. Layout direction is supplied explicitly at the app root, with LTR scoped to code/terminal content. English/Persian resource parity is checked. CI includes an Android 10 (API 29) launch/settings/language-switch smoke test after successful push builds. RTL/device typography, TalkBack and font-scale acceptance still require the physical-device checklist.
 
 ## Honest remaining gates
 

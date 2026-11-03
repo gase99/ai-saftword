@@ -114,10 +114,10 @@ jobs:
           echo 'Extract the ZIP and install the APK. This is a debug build, not a signed store release.' >> "$GITHUB_STEP_SUMMARY"
 
   emulator-smoke:
-    name: Android 34 launch smoke test
+    name: Android 10 launch and RTL smoke test
     needs: build
     if: github.event_name == 'push'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
@@ -139,12 +139,12 @@ jobs:
       - name: Run launch and settings smoke test
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: 29
           arch: x86_64
-          profile: pixel_6
+          profile: pixel_2
           disable-animations: true
           emulator-options: -no-snapshot -gpu swiftshader_indirect -noaudio -no-boot-anim
-          emulator-boot-timeout: 600
+          emulator-boot-timeout: 900
           script: bash -c 'set -o pipefail; ./gradlew --no-daemon --stacktrace :app:connectedDebugAndroidTest 2>&1 | tee /tmp/emulator-test.log'
       - name: Publish emulator diagnostics
         if: failure()
