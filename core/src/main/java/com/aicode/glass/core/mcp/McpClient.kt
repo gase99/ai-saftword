@@ -25,7 +25,8 @@ data class McpConnection(val server: McpServer, val protocol: String, val sessio
 /** MCP Streamable HTTP client. No shell/stdio transport, arbitrary URL fetch or silent tool execution. */
 @Singleton
 class McpClient @Inject constructor(private val http: OkHttpClient) {
-    private val nextId = AtomicLong(1)
+    private val nextId = ThreadLocal.withInitial { AtomicLong(1) }
+    
     suspend fun connect(server: McpServer, token: String): McpConnection = withContext(Dispatchers.IO) {
         EndpointPolicy.validate(server.endpoint, server.allowLocalHttp)
         val client = http.newBuilder().callTimeout(45, java.util.concurrent.TimeUnit.SECONDS).build()
@@ -64,7 +65,7 @@ class McpClient @Inject constructor(private val http: OkHttpClient) {
     }
     private data class RpcResponse(val result: JsonObject, val session: String?)
     private suspend fun rpc(client: OkHttpClient, server: McpServer, headers: Headers, session: String?, method: String, params: JsonObject, notification: Boolean = false): RpcResponse {
-        val id = nextId.getAndIncrement()
+        val id = if(notification) 0L else nextId.get().getAndIncrement()
         val payload = buildJsonObject { put("jsonrpc", "2.0"); if(!notification) put("id", id); put("method", method); put("params", params) }
         val request = Request.Builder().url(server.endpoint).headers(headers).header("Accept", "application/json, text/event-stream")
             .header("Content-Type", "application/json").header("MCP-Protocol-Version", "2025-03-26")

@@ -59,7 +59,7 @@ class SubAgentCoordinator @Inject constructor(
                         }
                         update(task.id, "complete", text.toString().ifBlank { "No analysis returned." })
                         "## ${task.role}\n$text"
-                    } catch(e: CancellationException) { update(task.id, "cancelled", text.toString()); throw e }
+                    } catch(e: CancellationException) { update(task.id, "cancelled"); throw e }
                     catch(e: Exception) { val detail = (e.message ?: "Analysis failed").take(1000); update(task.id, "error", detail); "## ${task.role}\nERROR: $detail" }
                 }
             } }.awaitAll().joinToString("\n\n")

@@ -57,7 +57,7 @@ fun TerminalScreen(filesInitially: Boolean = false, vm: WorkspaceViewModel = hil
                     Tab(selected = tab == index, onClick = { tab = index }, text = { Text(stringResource(label), fontSize = 12.sp) }, icon = { Icon(icon, null, Modifier.size(19.dp)) })
                 }
             }
-            when (tab) { 0 -> TerminalPane(vm); 1 -> FilesPane(vm, { importLauncher.launch(arrayOf("application/zip", "application/octet-stream")) }, { exportLauncher.launch("aicode-workspace.zip") }); else -> CheckpointsPane(vm) }
+            when (tab) { 0 -> TerminalPane(vm); 1 -> FilesPane(vm, { importLauncher.launch(arrayOf("application/zip", "application/octet-stream")) }, { exportLauncher.launch("aicode-workspace.zip") }, { auditLauncher.launch("terminal-audit.jsonl") }); else -> CheckpointsPane(vm) }
         }
     }
     ErrorNotice(error, vm::dismissError); ErrorNotice(notice, vm::dismissNotice)
@@ -98,7 +98,7 @@ fun TerminalScreen(filesInitially: Boolean = false, vm: WorkspaceViewModel = hil
         }
     }
 }
-@Composable private fun FilesPane(vm: WorkspaceViewModel, import: () -> Unit, export: () -> Unit) {
+@Composable private fun FilesPane(vm: WorkspaceViewModel, import: () -> Unit, export: () -> Unit, exportAudit: () -> Unit) {
     val files by vm.files.collectAsStateWithLifecycle(); val directory by vm.directory.collectAsStateWithLifecycle(); val busy by vm.busy.collectAsStateWithLifecycle()
     var create by remember { mutableStateOf(false) }; var path by remember { mutableStateOf("") }; var delete by remember { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxSize()) {
@@ -107,7 +107,7 @@ fun TerminalScreen(filesInitially: Boolean = false, vm: WorkspaceViewModel = hil
             Text("/$directory", modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
             IconButton(onClick = { create = true }, enabled = !busy) { Icon(Icons.Outlined.NoteAdd, stringResource(R.string.new_file)) }
             IconButton(onClick = vm::refresh) { Icon(Icons.Outlined.Refresh, stringResource(R.string.refresh)) }
-            IconButton(onClick = { auditLauncher.launch("terminal-audit.jsonl") }) { Icon(Icons.Outlined.ReceiptLong, stringResource(R.string.export_audit)) }
+            IconButton(onClick = exportAudit) { Icon(Icons.Outlined.ReceiptLong, stringResource(R.string.export_audit)) }
         }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (files.isEmpty()) item { EmptyState(Icons.Outlined.FolderOpen, stringResource(R.string.empty_folder), stringResource(R.string.empty_folder_detail), Modifier.fillMaxWidth()) }
