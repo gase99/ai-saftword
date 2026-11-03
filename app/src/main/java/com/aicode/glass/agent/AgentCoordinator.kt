@@ -51,7 +51,9 @@ class AgentCoordinator @Inject constructor(
                 else dao.touch(conversationId, current.title, now)
                 val key = secrets.get("api_${prefs.provider.name}")
                 secretKey = key
-                val keyPool = if(prefs.provider == ProviderType.OLLAMA) listOf("") else keys.get(prefs.provider).ifEmpty { listOf(key) }
+                // Ollama Cloud authenticates with a bearer token, so a stored key must win. Only a
+                // local Ollama server (no stored key) is allowed to continue keyless.
+                val keyPool = keys.get(prefs.provider).ifEmpty { if(prefs.provider == ProviderType.OLLAMA) listOf("") else listOf(key) }
                 val attempts = keyPool.mapIndexed { index, value -> KeyAttempt(config, value, "key-${index+1}") } + if(prefs.allowFallbacks) prefs.fallbackProviders.filter { it != prefs.provider }.flatMap { provider -> keys.get(provider).ifEmpty { if(provider == ProviderType.OLLAMA) listOf("") else emptyList() }.mapIndexed { index, value -> KeyAttempt(prefs.configs.getValue(provider), value, "key-${index+1}") } } else emptyList()
                 if(mcp.servers.first().any { it.enabled } && System.currentTimeMillis() - mcp.state.value.refreshedAt > 60000) mcp.refresh()
                 val externalTools = mcp.state.value.connections.flatMap { connection -> connection.tools.map { ToolSpec(it.qualifiedName, "External MCP: " + it.description, it.schema) } }.take(64)

@@ -9,7 +9,11 @@ on:
         type: choice
         options: [OPENAI, ANTHROPIC, GEMINI, OLLAMA]
       endpoint:
-        description: Ollama HTTPS tunnel URL only (public CI cannot reach your phone/LAN)
+        description: 'Endpoint override. Ollama Cloud: https://ollama.com. Local server: an HTTPS tunnel you control.'
+        required: false
+        type: string
+      model:
+        description: 'Model override (blank = provider default). Ollama Cloud default: gpt-oss:20b'
         required: false
         type: string
 
@@ -20,35 +24,159 @@ jobs:
   validate:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     environment: provider-validation
+    env:
+      SELECTED: ${{ inputs.provider }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-34 build-tools;34.0.0 platform-tools'
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: true
-      - name: Run selected real-provider smoke test
+
+      # Fail fast with an actionable message instead of a skipped test that looks green.
+      - name: Check the selected provider credential
+        id: credential
+        shell: bash
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          OLLAMA_ENDPOINT: ${{ inputs.endpoint }}
-          SELECTED: ${{ inputs.provider }}
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY || vars.OLLAMA_API_KEY }}
+          OLLAMA_ENDPOINT: ${{ inputs.endpoint || vars.OLLAMA_ENDPOINT || secrets.OLLAMA_ENDPOINT }}
+          OLLAMA_MODEL: ${{ inputs.model || vars.OLLAMA_MODEL }}
         run: |
+          set -euo pipefail
+          case "$SELECTED" in
+            OLLAMA)
+              if [ -z "${OLLAMA_ENDPOINT:-}" ]; then
+                echo "::error title=Ollama endpoint missing::Set the endpoint input to https://ollama.com (Ollama Cloud) or to an HTTPS tunnel of a local server, or define an OLLAMA_ENDPOINT repository variable."
+                exit 1
+              fi
+              case "$OLLAMA_ENDPOINT" in
+                *://ollama.com*|*://*.ollama.com*)
+                  # Ollama Cloud always authenticates with 'Authorization: Bearer <key>'.
+                  if [ -z "${OLLAMA_API_KEY:-}" ]; then
+                    echo "::error title=OLLAMA_API_KEY missing::Ollama Cloud requires a bearer token. Add OLLAMA_API_KEY to the provider-validation environment secrets."
+                    exit 1
+                  fi
+                  echo "Ollama Cloud detected; requests will send Authorization: Bearer <OLLAMA_API_KEY>."
+                  ;;
+                https://*)
+                  if [ -n "${OLLAMA_API_KEY:-}" ]; then
+                    echo "Using OLLAMA_API_KEY as a bearer token for the HTTPS tunnel."
+                  else
+                    echo "::warning title=No Ollama key::OLLAMA_API_KEY is not set, so the request is sent without an Authorization header. That is only expected for a keyless tunnel of a local server."
+                  fi
+                  ;;
+                http://*)
+                  echo "::warning title=Cleartext HTTP endpoint::http:// is accepted only for loopback or private-network addresses."
+                  ;;
+                *)
+                  echo "::error title=Invalid endpoint::OLLAMA_ENDPOINT must start with https:// or http://."
+                  exit 1
+                  ;;
+              esac
+              echo "Ollama endpoint: $OLLAMA_ENDPOINT"
+              echo "Ollama model: ${OLLAMA_MODEL:-<provider default>}"
+              ;;
+            OPENAI) test -n "${OPENAI_API_KEY:-}" || { echo "::error title=OPENAI_API_KEY missing::Add it to the provider-validation environment secrets."; exit 1; } ;;
+            ANTHROPIC) test -n "${ANTHROPIC_API_KEY:-}" || { echo "::error title=ANTHROPIC_API_KEY missing::Add it to the provider-validation environment secrets."; exit 1; } ;;
+            GEMINI) test -n "${GEMINI_API_KEY:-}" || { echo "::error title=GEMINI_API_KEY missing::Add it to the provider-validation environment secrets."; exit 1; } ;;
+            *) echo "::error title=Unknown provider::Expected one of OPENAI, ANTHROPIC, GEMINI, OLLAMA."; exit 1 ;;
+          esac
+          echo "Selected provider: $SELECTED"
+
+      - name: Run selected real-provider smoke test
+        id: live
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ inputs.model || vars.OPENAI_MODEL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ inputs.model || vars.ANTHROPIC_MODEL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ inputs.model || vars.GEMINI_MODEL }}
+          GEMINI_ENDPOINT: ${{ vars.GEMINI_ENDPOINT }}
+          # This line was missing: without it the Ollama test ran unauthenticated.
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY || vars.OLLAMA_API_KEY }}
+          OLLAMA_ENDPOINT: ${{ inputs.endpoint || vars.OLLAMA_ENDPOINT || secrets.OLLAMA_ENDPOINT }}
+          OLLAMA_MODEL: ${{ inputs.model || vars.OLLAMA_MODEL }}
+          # Print the provider's status line and response body into the job log.
+          AICODE_DEBUG_HTTP: 'true'
+        run: |
+          set -o pipefail
+          chmod +x gradlew
           METHOD=$(echo "$SELECTED" | tr '[:upper:]' '[:lower:]')
-          ./gradlew --no-daemon :core:testDebugUnitTest -DliveProviders=true --tests "com.aicode.glass.core.LiveProviderTest.$METHOD"
+          ./gradlew --no-daemon --console=plain --stacktrace \
+            -PliveProviders=true -DliveProviders=true \
+            :core:testDebugUnitTest \
+            --tests "com.aicode.glass.core.LiveProviderTest.$METHOD" 2>&1 | tee /tmp/live-provider.log
+
+      # A skipped live test must never look like a passing validation.
+      - name: Verify the selected test actually ran
+        if: always() && steps.credential.outcome == 'success'
+        shell: python
+        run: |
+          import os, pathlib, sys, xml.etree.ElementTree as ET
+          name = os.environ['SELECTED'].lower()
+          cases = []
+          for report in pathlib.Path('core/build/test-results').glob('**/TEST-*.xml'):
+              for case in ET.parse(report).getroot().iter('testcase'):
+                  if case.attrib.get('name', '').lower() == name:
+                      cases.append(case)
+          if not cases:
+              sys.exit(f"No test report for LiveProviderTest.{name}: the test never executed (check the Gradle step above).")
+          for case in cases:
+              skipped = case.find('skipped')
+              if skipped is not None:
+                  reason = (skipped.attrib.get('message') or skipped.text or 'no reason recorded').strip()
+                  sys.exit(f"LiveProviderTest.{name} was SKIPPED, so nothing was validated: {reason}")
+
+      - name: Surface provider failure details
+        if: always()
+        shell: python
+        run: |
+          import pathlib, xml.etree.ElementTree as ET
+          printed = False
+          for report in pathlib.Path('core/build/test-results').glob('**/TEST-*.xml'):
+              for case in ET.parse(report).getroot().iter('testcase'):
+                  for failure in list(case.findall('failure')) + list(case.findall('error')):
+                      printed = True
+                      detail = (case.attrib.get('classname', '') + '.' + case.attrib.get('name', '') + '\n' + (failure.text or failure.attrib.get('message', '')))[:8000]
+                      detail = detail.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                      print('::error title=Live provider failure::' + detail)
+          print('Failure details printed from the XML reports.' if printed else 'No failing test cases found in the XML reports.')
+
       - name: Report actual validation scope
         if: always()
+        shell: bash
+        env:
+          REPORTED_ENDPOINT: ${{ inputs.endpoint || vars.OLLAMA_ENDPOINT || vars.GEMINI_ENDPOINT || 'none' }}
+          REPORTED_MODEL: ${{ inputs.model || 'provider default' }}
         run: |
-          echo '## Live provider validation' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Only the explicitly selected smoke test ran. Other providers are skipped, not verified. Check test reports for executed/skipped status.' >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo '## Live provider validation'
+            echo ''
+            echo "- provider: \`$SELECTED\`"
+            echo "- endpoint override: \`$REPORTED_ENDPOINT\`"
+            echo "- model override: \`$REPORTED_MODEL\`"
+            echo ''
+            echo 'Only the explicitly selected smoke test ran. Other providers are skipped, not verified.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-artifact@v5
         if: always()
         with:
           name: live-provider-report-${{ github.run_id }}
-          path: core/build/reports/tests/
+          path: |
+            core/build/reports/tests/
+            core/build/test-results/
           if-no-files-found: warn

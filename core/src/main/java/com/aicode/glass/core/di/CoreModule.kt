@@ -18,10 +18,8 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 object CoreModule {
     @Provides @Singleton
     fun preferences(@ApplicationContext context: Context): DataStore<Preferences> = context.dataStore
-    @Provides @Singleton fun http(): okhttp3.OkHttpClient = okhttp3.OkHttpClient.Builder()
-        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS).readTimeout(90, java.util.concurrent.TimeUnit.SECONDS)
-        .callTimeout(240, java.util.concurrent.TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false)
-        .retryOnConnectionFailure(false).addInterceptor(com.aicode.glass.core.network.LocalHttpInterceptor()).build()
+    // Timeouts live in one place so the live-provider tests exercise the same transport policy.
+    @Provides @Singleton fun http(): okhttp3.OkHttpClient = com.aicode.glass.core.network.HttpClients.provider()
 }
 
 @Module

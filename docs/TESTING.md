@@ -43,8 +43,31 @@ Record device/OS, app commit, provider/model and reproduction steps for failures
 
 ## Phase 2 automated validation
 
-Ordinary CI runs app/core/terminal JVM tests, debug and minified release assembly, and Android lint. Live provider tests are skipped unless `-DliveProviders=true` is explicitly passed. MCP MockWebServer tests exercise initialize/session handling, tools discovery and JSON/SSE calls. Terminal tests cover parser chains, actual file effects, per-mutation checkpoints, concurrent tabs, history/cwd isolation, cancellation, quotas and path protection.
+Ordinary CI runs app/core/terminal JVM tests, debug and minified release assembly, and Android lint. Live provider tests are skipped unless `-PliveProviders=true` (or `-DliveProviders=true`) is explicitly passed. MCP MockWebServer tests exercise initialize/session handling, tools discovery and JSON/SSE calls. Terminal tests cover parser chains, actual file effects, per-mutation checkpoints, concurrent tabs, history/cwd isolation, cancellation, quotas and path protection.
 
 To validate a cloud account, configure its key as a protected `provider-validation` environment secret and dispatch **Live provider validation** from main. Select one provider per run. For Ollama on a real phone use the in-app connection test; for public CI provide an HTTPS tunnel you control. Never expose an unauthenticated Ollama server directly to the internet. The workflow does not print keys or response content.
+
+### Live provider configuration
+
+| Provider | Environment secret | Optional variables / inputs |
+|----------|--------------------|-----------------------------|
+| OpenAI | `OPENAI_API_KEY` | `OPENAI_MODEL` |
+| Anthropic | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL` |
+| Gemini | `GEMINI_API_KEY` | `GEMINI_MODEL` (default `gemini-3.5-flash`), `GEMINI_ENDPOINT` |
+| Ollama | `OLLAMA_API_KEY` (required for Ollama Cloud, optional for a self-hosted proxy) | `OLLAMA_ENDPOINT` (`https://ollama.com` for Ollama Cloud, or an HTTPS tunnel to your own server), `OLLAMA_MODEL` (cloud default `gpt-oss:20b`, local default `llama3.2`) |
+
+The workflow resolves `OLLAMA_ENDPOINT` from the dispatch `endpoint` input first, then the `OLLAMA_ENDPOINT` repository variable. An `ollama.com` (or `*.ollama.com`) endpoint always requires `OLLAMA_API_KEY` and sends `Authorization: Bearer <key>`; for any other endpoint the key is optional and is sent only when configured. `http://` is accepted only for loopback and private addresses, where no key is required at all.
+
+Endpoints are normalised before use, so `https://ollama.com`, `https://ollama.com/api` and `https://ollama.com/api/chat` all resolve to the OpenAI-compatible `https://ollama.com/v1/chat/completions`. A `404` usually means an unsupported model: the test prints the models the credential can use (from `GET /v1/models` or the Gemini `models` call) before it fails.
+
+Run the same checks locally with:
+
+```sh
+OLLAMA_ENDPOINT=https://ollama.com OLLAMA_API_KEY=... OLLAMA_MODEL=gpt-oss:20b \
+  ./gradlew :core:testDebugUnitTest -PliveProviders=true \
+  --tests "com.aicode.glass.core.LiveProviderTest.ollama"
+```
+
+`AiException` messages now include the HTTP status, the sanitized provider response body, a request id when present and a hint for 400/401/403/404/429/timeouts; set `AICODE_DEBUG_HTTP=true` (the workflow does) to echo the full report to stderr.
 
 The separately dispatched Device smoke validation workflow checks launch/settings and English → Persian → English switching. Hosted API 34 and API 29 attempts timed out before emulator boot; no device-test pass is claimed. Run this workflow on a compatible runner or run the instrumentation tests on a physical device. Android 34 device validation remains a release gate. It is not a full RTL, accessibility, provider-account or signed-release certification.

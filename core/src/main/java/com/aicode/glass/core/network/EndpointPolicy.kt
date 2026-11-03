@@ -14,6 +14,16 @@ object EndpointPolicy {
         if (!isLocal(uri.host)) throw AiException("Local HTTP requires a loopback or private IP literal (or localhost), not a public domain.")
         return uri
     }
+    /**
+     * True for a plain-HTTP loopback/private-network endpoint. Such a server (a local Ollama
+     * instance) is the only case where an empty API key is acceptable.
+     */
+    fun isLocalEndpoint(url: String): Boolean = runCatching {
+        val uri = URI(url)
+        val host = uri.host ?: return@runCatching false
+        uri.scheme?.equals("http", true) == true && isLocal(host)
+    }.getOrDefault(false)
+
     fun isLocal(host: String): Boolean {
         if (host.equals("localhost", true) || host == "10.0.2.2") return true
         return runCatching {
