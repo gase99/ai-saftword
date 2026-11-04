@@ -26,7 +26,16 @@ data class AppPreferences(
 ) { val darkTheme: Boolean get() = theme != "light" }
 
 @Singleton
-class SettingsRepository @Inject constructor(private val store: DataStore<Preferences>) {
+class SettingsRepository @Inject constructor(
+    private val store: DataStore<Preferences>,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
+) {
+    /**
+     * Initial value for the preferences StateFlows. It mirrors the language already applied to the
+     * activity in `attachBaseContext`, so the first composed frame does not briefly disagree with
+     * the localized resources (which would trigger a pointless activity recreation).
+     */
+    val initial: AppPreferences get() = AppPreferences(language = AppLocale.read(context))
     // The settings flow is collected eagerly at startup (AppViewModel), so an unreadable file must
     // degrade to defaults instead of crashing the process. Secrets are stored elsewhere.
     val preferences: Flow<AppPreferences> = store.data.catch { error ->
@@ -44,7 +53,12 @@ class SettingsRepository @Inject constructor(private val store: DataStore<Prefer
             reducedMotion = p[Keys.reducedMotion] ?: false, terminalLogging = p[Keys.terminalLogging] ?: false, authorName = p[Keys.authorName] ?: "AiCode Glass",
             authorEmail = p[Keys.authorEmail] ?: "developer@localhost", gitRemote = p[Keys.remote] ?: "", configs = configs)
     }
-    suspend fun setLanguage(value: String) = store.edit { it[Keys.language] = if (value == "fa") "fa" else "en" }
+    suspend fun setLanguage(value: String) {
+        val language = AppLocale.normalize(value)
+        // Mirror first: MainActivity reloads its resources from this value when it recreates.
+        AppLocale.write(context, language)
+        store.edit { it[Keys.language] = language }
+    }
     suspend fun setTheme(value: String) = store.edit { it[Keys.theme] = value }
     suspend fun setWorkspace(value: String) = store.edit { it[Keys.workspace] = value; it[Keys.conversation] = 0L }
     suspend fun setConversation(value: Long) = store.edit { it[Keys.conversation] = value }

@@ -12,7 +12,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(val settings: SettingsRepository, val chats: ChatRepository, val agent: AgentCoordinator, val analysts: com.aicode.glass.agent.SubAgentCoordinator) : ViewModel() {
-    val preferences = settings.preferences.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppPreferences())
+    val preferences = settings.preferences.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), settings.initial)
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val conversations = preferences.flatMapLatest { chats.conversations(it.activeWorkspace) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)

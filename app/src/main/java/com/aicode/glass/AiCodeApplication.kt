@@ -10,6 +10,9 @@ import dagger.hilt.android.HiltAndroidApp
 class AiCodeApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        // Load the UI language before StrictMode starts reporting main-thread disk reads; the
+        // activity needs it synchronously in attachBaseContext.
+        com.aicode.glass.core.data.AppLocale.warmUp(this)
         installCrashLogger()
         installStrictModeInDebug()
     }

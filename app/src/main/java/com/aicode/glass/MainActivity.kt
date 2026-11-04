@@ -21,7 +21,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.*
+import com.aicode.glass.core.data.AppLocale
 import com.aicode.glass.ui.components.*
 import com.aicode.glass.ui.model.AppViewModel
 import com.aicode.glass.ui.screens.*
@@ -40,20 +40,43 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val vm: AppViewModel by viewModels()
+    private var appliedLanguage: String = AppLocale.ENGLISH
+
+    /**
+     * Applies the persisted UI language to this activity's own resources.
+     *
+     * This must not be done by overriding `LocalContext` in Compose: the value returned by
+     * `createConfigurationContext` is a plain `ContextImpl`, and `hiltViewModel()` inside NavHost
+     * requires an Activity context. That mismatch crashed every destination with
+     * "Expected an activity context for creating a HiltViewModelFactory".
+     */
+    override fun attachBaseContext(newBase: android.content.Context) {
+        appliedLanguage = AppLocale.read(newBase)
+        super.attachBaseContext(
+            newBase.createConfigurationContext(
+                AppLocale.localize(newBase.resources.configuration, appliedLanguage)
+            )
+        )
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             val prefs by vm.preferences.collectAsStateWithLifecycle()
             val dark = if (prefs.theme == "system") isSystemInDarkTheme() else prefs.darkTheme
-            val base = LocalContext.current
-            val localized = remember(base, prefs.language) {
-                val configuration = android.content.res.Configuration(base.resources.configuration)
-                configuration.setLocale(java.util.Locale.forLanguageTag(prefs.language))
-                base.createConfigurationContext(configuration)
+            // Language switches still apply immediately: recreating the activity re-runs
+            // attachBaseContext, so resources and every stringResource use the new locale.
+            LaunchedEffect(prefs.language) {
+                if (prefs.language != appliedLanguage) {
+                    // Keep the synchronous mirror in sync before the recreated activity reads it.
+                    AppLocale.write(this@MainActivity, prefs.language)
+                    appliedLanguage = prefs.language
+                    recreate()
+                }
             }
             AiCodeTheme(darkTheme = dark) {
-                CompositionLocalProvider(LocalContext provides localized, LocalReducedMotion provides prefs.reducedMotion, LocalLayoutDirection provides if (prefs.language == "fa") LayoutDirection.Rtl else LayoutDirection.Ltr) {
+                CompositionLocalProvider(LocalReducedMotion provides prefs.reducedMotion, LocalLayoutDirection provides if (prefs.language == AppLocale.PERSIAN) LayoutDirection.Rtl else LayoutDirection.Ltr) {
                     GlassBackground(Modifier.fillMaxSize()) { AppShell(vm) }
                 }
             }
