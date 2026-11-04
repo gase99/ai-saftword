@@ -44,6 +44,13 @@ android {
         }
     }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    testOptions {
+        unitTests {
+            // Robolectric needs the merged resources/manifest to launch MainActivity on the JVM.
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
+    }
     lint { abortOnError = true; warningsAsErrors = false }
 }
 dependencies {
@@ -81,4 +88,12 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    // Startup regression coverage: launch the real Hilt graph and MainActivity on the JVM.
+    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("androidx.test:core-ktx:1.5.0")
+    testImplementation("androidx.test.ext:junit:1.1.5")
+    testImplementation("com.google.dagger:hilt-android-testing:2.50")
+    kspTest("com.google.dagger:hilt-compiler:2.50")
+    testImplementation(platform("androidx.compose:compose-bom:2024.02.00"))
+    testImplementation("androidx.compose.ui:ui-test-junit4")
 }

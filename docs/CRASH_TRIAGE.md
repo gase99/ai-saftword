@@ -110,7 +110,37 @@ What the app does now:
 `HttpClientsTest` pins this contract (timeouts, no connection opened at construction, client chain
 constructed without throwing).
 
-## 5. If the trace points somewhere else
+## 5. Language localisation replaced `LocalContext`
+
+Symptom in the trace (this was the real force-close on a physical device):
+
+```
+java.lang.IllegalStateException: Expected an activity context for creating a
+HiltViewModelFactory but instead found: android.app.ContextImpl@…
+    at androidx.hilt.navigation.compose.HiltNavBackStackEntryKt…
+```
+
+Cause: `MainActivity` used to localise the UI by providing
+`base.createConfigurationContext(configuration)` as `LocalContext`. The returned object is a plain
+`ContextImpl`, not an `Activity`. `hiltViewModel()` requires an `Activity` context to borrow the
+activity's Hilt component, so the first navigation destination (the chat screen) threw during
+composition and the process was killed. A JVM/Robolectric test can miss this, because the shadow
+implementation may return the activity context for an unchanged configuration.
+
+What the app does now:
+
+* `MainActivity.attachBaseContext` applies the stored language to the activity's **own** resources
+  (`AppLocale.localize(...)`), so `LocalContext` stays the `Activity`.
+* The language is mirrored synchronously in SharedPreferences (`AppLocale`), because
+  `attachBaseContext` runs before DataStore can be read. `SettingsRepository.setLanguage` keeps both
+  copies in sync.
+* Switching the language recreates the activity (`appliedLanguage` check in `MainActivity`), which
+  re-runs `attachBaseContext` and refreshes every `stringResource`. The layout direction still
+  switches immediately through `LocalLayoutDirection`.
+* `StartupSmokeTest` / `StartupLocaleSmokeTest` launch the real Hilt graph in both languages so this
+  regression cannot come back silently.
+
+## 6. If the trace points somewhere else
 
 Attach the `adb logcat -b crash` output to the issue. The first `Caused by:` line is what matters;
 `ActivityThread`/`Instrumentation` frames above it are boilerplate

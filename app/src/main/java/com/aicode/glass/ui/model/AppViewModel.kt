@@ -15,7 +15,7 @@ class AppViewModel @Inject constructor(
     val settings: SettingsRepository, val chats: ChatRepository, val workspaces: WorkspaceRepository,
     private val dao: ChatDao, private val agent: AgentCoordinator
 ) : ViewModel() {
-    val preferences = settings.preferences.stateIn(viewModelScope, SharingStarted.Eagerly, AppPreferences())
+    val preferences = settings.preferences.stateIn(viewModelScope, SharingStarted.Eagerly, settings.initial)
     val workspaceList = workspaces.workspaces.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     private val _ready = MutableStateFlow(false); val ready = _ready.asStateFlow()
     private val _error = MutableStateFlow<String?>(null); val error = _error.asStateFlow()
