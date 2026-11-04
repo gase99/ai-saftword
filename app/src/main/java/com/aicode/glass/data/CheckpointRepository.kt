@@ -4,6 +4,7 @@ import android.content.Context
 import com.aicode.glass.core.data.*
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -19,7 +20,10 @@ class CheckpointRepository @Inject constructor(
 ) {
     private val objects = File(context.filesDir, "checkpoint-objects")
     private val mutex = Mutex()
-    fun observe(workspaceId: String) = dao.observe(workspaceId)
+    fun observe(workspaceId: String) = dao.observe(workspaceId).catch { error ->
+        android.util.Log.e("AiCodeGlass", "Checkpoints could not be read", error)
+        emit(emptyList())
+    }
     suspend fun capture(workspaceId: String, label: String): String = workspaces.transaction(workspaceId) { captureLocked(it, workspaceId, label) }
 
     /** Caller must hold WorkspaceRepository.transaction for this workspace. */

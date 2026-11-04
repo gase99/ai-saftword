@@ -22,6 +22,13 @@ The APK is uploaded only when produced; always check that the job is green. Repo
 - Actual temporary-file commands, mutation checkpoint callback, unsupported-runtime disclosure.
 - Atomic file replacement and rollback tree activation preserving Git metadata.
 
+## If the installed APK force-closes
+
+A green build does not prove the app opens on a device that already holds data from an older
+install. Room schema mismatches and corrupt DataStore files are the usual causes; the app now
+recovers from both automatically. See [CRASH_TRIAGE.md](CRASH_TRIAGE.md) for the `adb logcat`
+commands, the migration policy and the reset commands.
+
 ## Physical-device acceptance checklist
 
 CI compilation and JVM tests do **not** substitute for this checklist:

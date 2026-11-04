@@ -2,7 +2,9 @@ package com.aicode.glass.core.data
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
+import androidx.datastore.preferences.core.emptyPreferences
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import com.aicode.glass.core.network.ProviderConfig
 import com.aicode.glass.core.network.ProviderType
@@ -25,7 +27,12 @@ data class AppPreferences(
 
 @Singleton
 class SettingsRepository @Inject constructor(private val store: DataStore<Preferences>) {
-    val preferences: Flow<AppPreferences> = store.data.map { p ->
+    // The settings flow is collected eagerly at startup (AppViewModel), so an unreadable file must
+    // degrade to defaults instead of crashing the process. Secrets are stored elsewhere.
+    val preferences: Flow<AppPreferences> = store.data.catch { error ->
+        android.util.Log.e("AiCodeGlass", "Settings could not be read; continuing with defaults", error)
+        emit(emptyPreferences())
+    }.map { p ->
         val configs = ProviderType.entries.associateWith { provider -> ProviderConfig(provider,
             p[stringPreferencesKey("model_${provider.name}")] ?: provider.defaultModel,
             p[stringPreferencesKey("endpoint_${provider.name}")] ?: "", p[booleanPreferencesKey("local_http_${provider.name}")] ?: false) }
