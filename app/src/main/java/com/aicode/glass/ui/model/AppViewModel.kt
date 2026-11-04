@@ -29,7 +29,13 @@ class AppViewModel @Inject constructor(
                     if (dao.conversation(preferred)?.workspaceId != id) settings.setConversation(existing.firstOrNull()?.id ?: chats.create(id))
                     _ready.value = true
                 }
-            } catch (e: Exception) { _error.value = e.message ?: "Could not open the local database." }
+            } catch (e: Exception) {
+                // A broken local database must not leave the shell on a spinner forever: show the
+                // reason (the schema fallback in DatabaseModule should have prevented it).
+                android.util.Log.e("AiCodeGlass", "Workspace initialisation failed", e)
+                _error.value = e.message ?: "Could not open the local database."
+                _ready.value = true
+            }
         }
     }
     fun dismissError() { _error.value = null }

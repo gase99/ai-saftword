@@ -6,6 +6,7 @@ import com.aicode.glass.core.data.WorkspaceEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
@@ -32,7 +33,11 @@ class WorkspaceRepository @Inject constructor(
     @ApplicationContext private val context: Context, private val dao: WorkspaceDao
 ) {
     private val locks = ConcurrentHashMap<String, Mutex>()
-    val workspaces: Flow<List<WorkspaceEntity>> = dao.observe()
+    // Collected by the shell at startup; a broken database must not take the process down.
+    val workspaces: Flow<List<WorkspaceEntity>> = dao.observe().catch { error ->
+        android.util.Log.e("AiCodeGlass", "Workspace list could not be read", error)
+        emit(emptyList())
+    }
     private fun validId(id: String): String {
         require(id == "default" || runCatching { UUID.fromString(id).toString() == id }.getOrDefault(false)) { "Invalid workspace ID" }
         return id
